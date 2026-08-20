@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
-import { createTableMappingStore } from '@/store/createTableMappingStore';
+import { createTableMappingStore } from '@/core/store/createTableMappingStore';
+import type { TableMappingStore } from '@/core/store/createTableMappingStore';
+import { createId } from '@/core/utils/createId';
 import type { FieldItem, FieldItemInput, Mapping, TableMappingStateWithAction } from '@/types/table-mapping';
-
-import type { TableMappingStore } from '../store/createTableMappingStore';
 
 interface UseTableMappingProps {
   sources: FieldItemInput[];
@@ -70,12 +69,12 @@ const useTableMapping = ({
   // ─── Mutations ───────────────────────────────────────────────────────────────
 
   const appendSource = (source: FieldItem) => {
-    const newSource: FieldItem = { ...source, id: source.id || `source-${uuidv4()}` };
+    const newSource: FieldItem = { ...source, id: source.id || `source-${createId()}` };
     store.appendSource(newSource);
   };
 
   const appendTarget = (target: FieldItem) => {
-    const newTarget: FieldItem = { ...target, id: target.id || `target-${uuidv4()}` };
+    const newTarget: FieldItem = { ...target, id: target.id || `target-${createId()}` };
     store.appendTarget(newTarget);
   };
 

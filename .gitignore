@@ -40,3 +40,5 @@ storybook-static
 /playwright/.cache/
 /docs
 /.claude
+/__test__/characterization/geometry-baseline.test.tsx
+/__test__/characterization/__snapshots__/geometry-baseline.test.tsx.snap

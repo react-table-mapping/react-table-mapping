@@ -2,8 +2,8 @@ import React, { memo, useCallback, useSyncExternalStore } from 'react';
 
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { StoreTopic } from '@/core/store/createTableMappingStore';
 import { useTableMappingStore } from '@/store/TableMappingStoreContext';
-import type { StoreTopic } from '@/store/createTableMappingStore';
 import type { TableMappingRef } from '@/types/table-mapping';
 
 export interface EditableCellProps {

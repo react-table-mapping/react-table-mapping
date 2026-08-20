@@ -3,10 +3,10 @@ import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } 
 import MappingLines from '@/components/MappingLines';
 import SourceTable from '@/components/SourceTable';
 import TargetTable from '@/components/TargetTable';
+import { createLinePath } from '@/core/geometry/createLinePath';
 import useTableMapping from '@/hooks/useTableMapping';
 import TableMappingStoreContext from '@/store/TableMappingStoreContext';
 import { type TableMappingProps } from '@/types/table-mapping';
-import { SvgLineExtractor } from '@/utils';
 
 function TableMapping({
   ref,
@@ -216,7 +216,7 @@ function TableMapping({
       const endX = targetRect.left - containerRect.left;
       const endY = targetRect.top + targetRect.height / 2 - containerRect.top;
 
-      const path = SvgLineExtractor({ type: lineType, startX, startY, endX, endY });
+      const path = createLinePath({ type: lineType, from: { x: startX, y: startY }, to: { x: endX, y: endY } });
 
       return {
         path,

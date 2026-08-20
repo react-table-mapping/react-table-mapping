@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createTableMappingStore } from '@/store/createTableMappingStore';
+import { createTableMappingStore } from '@/core/store/createTableMappingStore';
 import type { FieldItem, Mapping } from '@/types/table-mapping';
 
 const makeSource = (id: string): FieldItem => ({
@@ -120,13 +120,15 @@ describe('createTableMappingStore', () => {
     expect(emit).not.toHaveBeenCalled();
     vi.advanceTimersByTime(300);
     expect(emit).toHaveBeenCalledTimes(1);
-    expect(emit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'UPDATE_SOURCE_FIELD_VALUE',
-        payload: expect.objectContaining({ newValue: 'typed' }),
-      }),
-      expect.any(Object),
-    );
+    const [action, snapshot] = emit.mock.calls[0];
+    expect(action).toEqual({
+      type: 'UPDATE_SOURCE_FIELD_VALUE',
+      payload: { sourceId: 's1', fieldKey: 'name', newValue: 'typed' },
+    });
+    expect(snapshot).toEqual(store.getSnapshot());
+    expect(snapshot.sources).toEqual([
+      { id: 's1', key: 's1', name: { type: 'input', columnKey: 'name', value: 'typed' } },
+    ]);
   });
 
   it('rapid setFieldValue calls collapse into one emit (last-wins)', () => {
@@ -195,17 +197,60 @@ describe('createTableMappingStore', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it('applyExternalProps: cancels pending timers for the changed side', () => {
+  it('pushing target props cancels only the pending target edit, not the pending source edit', () => {
     const store = makeStore();
-    store.setFieldValue('target', 't1', 'name', 'pending');
-    // External targets change comes in before debounce fires
+    // The parent's own prop references, captured before any pending edit — this is what a
+    // real controlled consumer still holds for the side it is NOT pushing, since it has not
+    // received the (debounced, not-yet-emitted) source edit back yet.
+    const initial = store.getSnapshot();
+
+    store.setFieldValue('source', 's1', 'name', 'source-pending');
+    store.setFieldValue('target', 't1', 'name', 'target-pending');
+
+    // External targets change comes in before either debounce fires; sources/mappings are
+    // the untouched parent references so the echo check sees them as unchanged.
     const newTargets = [
       { ...makeTarget('t1'), name: { type: 'input' as const, columnKey: 'name', value: 'external' } },
     ];
-    store.applyExternalProps({ ...store.getSnapshot(), targets: newTargets });
+    store.applyExternalProps({ sources: initial.sources, targets: newTargets, mappings: initial.mappings });
+
     vi.advanceTimersByTime(300);
-    // Pending timer was cancelled — only the applyExternalProps field notification, no emit
-    expect(emit).not.toHaveBeenCalled();
+
+    // Only the surviving source timer emits — the target timer was cancelled by the push,
+    // and the source timer must NOT have been swept up with it.
+    expect(emit).toHaveBeenCalledTimes(1);
+    const [action] = emit.mock.calls[0];
+    expect(action).toEqual({
+      type: 'UPDATE_SOURCE_FIELD_VALUE',
+      payload: { sourceId: 's1', fieldKey: 'name', newValue: 'source-pending' },
+    });
+  });
+
+  it('pushing source props cancels only the pending source edit, not the pending target edit', () => {
+    const store = makeStore();
+    // Same rationale as the mirror case above: the untouched side keeps the parent's
+    // pre-edit reference so the echo check treats it as unchanged.
+    const initial = store.getSnapshot();
+
+    store.setFieldValue('source', 's1', 'name', 'source-pending');
+    store.setFieldValue('target', 't1', 'name', 'target-pending');
+
+    // External sources change comes in before either debounce fires
+    const newSources = [
+      { ...makeSource('s1'), name: { type: 'input' as const, columnKey: 'name', value: 'external' } },
+    ];
+    store.applyExternalProps({ sources: newSources, targets: initial.targets, mappings: initial.mappings });
+
+    vi.advanceTimersByTime(300);
+
+    // Only the surviving target timer emits — mirror of the case above, proving both
+    // call sites in applyExternalProps are wired to their own side and not swapped.
+    expect(emit).toHaveBeenCalledTimes(1);
+    const [action] = emit.mock.calls[0];
+    expect(action).toEqual({
+      type: 'UPDATE_TARGET_FIELD_VALUE',
+      payload: { targetId: 't1', fieldKey: 'name', newValue: 'target-pending' },
+    });
   });
 
   // ─── structural mutations flush pending emits ─────────────────────────────────
@@ -229,29 +274,38 @@ describe('createTableMappingStore', () => {
     const store = makeStore();
     const item = makeSource('s2');
     store.appendSource(item);
-    expect(emit).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'APPEND_SOURCE', payload: { source: item } }),
-      expect.any(Object),
-    );
-    expect(store.getSnapshot().sources).toHaveLength(2);
+    expect(emit).toHaveBeenCalledTimes(1);
+    const [action, snapshot] = emit.mock.calls[0];
+    expect(action).toEqual({ type: 'APPEND_SOURCE', payload: { source: item } });
+    expect(snapshot).toEqual(store.getSnapshot());
+    expect(snapshot.sources).toEqual([makeSource('s1'), item]);
   });
 
   it('removeSource removes source and its mappings', () => {
     const store = makeStore({ mappings: [makeMapping('s1', 't1')] });
     store.removeSource('s1');
-    expect(store.getSnapshot().sources).toHaveLength(0);
-    expect(store.getSnapshot().mappings).toHaveLength(0);
-    expect(emit).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'REMOVE_SOURCE', payload: expect.objectContaining({ sourceId: 's1' }) }),
-      expect.any(Object),
-    );
+    expect(emit).toHaveBeenCalledTimes(1);
+    const [action, snapshot] = emit.mock.calls[0];
+    expect(action).toEqual({
+      type: 'REMOVE_SOURCE',
+      payload: { sourceId: 's1', removedMappings: [makeMapping('s1', 't1')] },
+    });
+    expect(snapshot).toEqual(store.getSnapshot());
+    expect(snapshot.sources).toEqual([]);
+    expect(snapshot.mappings).toEqual([]);
   });
 
   it('addMapping emits ADD_MAPPING', () => {
     const store = makeStore();
     store.addMapping('s1', 't1');
-    expect(store.getSnapshot().mappings).toHaveLength(1);
-    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'ADD_MAPPING' }), expect.any(Object));
+    expect(emit).toHaveBeenCalledTimes(1);
+    const [action, snapshot] = emit.mock.calls[0];
+    expect(action).toEqual({
+      type: 'ADD_MAPPING',
+      payload: { sourceId: 's1', targetId: 't1', mapping: makeMapping('s1', 't1') },
+    });
+    expect(snapshot).toEqual(store.getSnapshot());
+    expect(snapshot.mappings).toEqual([makeMapping('s1', 't1')]);
   });
 
   it('addMapping is idempotent', () => {
@@ -264,8 +318,14 @@ describe('createTableMappingStore', () => {
   it('clearMappings emits CLEAR_MAPPINGS', () => {
     const store = makeStore({ mappings: [makeMapping('s1', 't1')] });
     store.clearMappings();
-    expect(store.getSnapshot().mappings).toHaveLength(0);
-    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'CLEAR_MAPPINGS' }), expect.any(Object));
+    expect(emit).toHaveBeenCalledTimes(1);
+    const [action, snapshot] = emit.mock.calls[0];
+    expect(action).toEqual({
+      type: 'CLEAR_MAPPINGS',
+      payload: { clearedMappings: [makeMapping('s1', 't1')] },
+    });
+    expect(snapshot).toEqual(store.getSnapshot());
+    expect(snapshot.mappings).toEqual([]);
   });
 
   it('sameLineMapping maps index-by-index', () => {

@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { TableMappingStore } from './createTableMappingStore';
+import type { TableMappingStore } from '@/core/store/createTableMappingStore';
 
 const TableMappingStoreContext = createContext<TableMappingStore | null>(null);
 

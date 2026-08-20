@@ -35,12 +35,12 @@
     "lint:check": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "type": "tsc --noEmit",
+    "type": "tsc -b --force",
     "preview": "vite preview",
     "prepublishOnly": "npm run build:lib",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
@@ -50,8 +50,7 @@
   "dependencies": {
     "lucide-react": "^0.536.0",
     "react": "19.0.1",
-    "react-dom": "19.0.1",
-    "uuid": "^11.1.0"
+    "react-dom": "19.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
@@ -60,8 +59,9 @@
     "@storybook/addon-docs": "^9.1.0",
     "@storybook/addon-themes": "^9.1.0",
     "@storybook/react-vite": "^9.1.0",
+    "@testing-library/dom": "^10",
     "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^14.0.0",
+    "@testing-library/react": "^16",
     "@testing-library/user-event": "^14.0.0",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/node": "^24.0.10",

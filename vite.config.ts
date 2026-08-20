@@ -63,12 +63,11 @@ export default defineConfig(({ mode }) => {
         fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
       },
       rollupOptions: {
-        external: ['react', 'react-dom', 'uuid', '@radix-ui/react-select', '@radix-ui/react-slot'],
+        external: ['react', 'react-dom', '@radix-ui/react-select', '@radix-ui/react-slot'],
         output: {
           globals: {
             react: 'React',
             'react-dom': 'ReactDOM',
-            uuid: 'uuid',
             '@radix-ui/react-select': 'RadixSelect',
             '@radix-ui/react-slot': 'RadixSlot',
           },

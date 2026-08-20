@@ -15,27 +15,29 @@ export const performDragAndDrop = async (params: PerformDndTestParams) => {
   const sourceBox = await sourceConnector.boundingBox();
   const targetBox = await targetConnector.boundingBox();
 
-  if (sourceBox && targetBox) {
-    const sourceX = sourceBox.x + sourceBox.width / 2;
-    const sourceY = sourceBox.y + sourceBox.height / 2;
-    const targetX = targetBox.x + targetBox.width / 2;
-    const targetY = targetBox.y + targetBox.height / 2;
-
-    await page.mouse.move(sourceX, sourceY);
-    await page.mouse.down();
-
-    const steps = 3;
-
-    for (let i = 1; i <= steps; i++) {
-      const currentX = sourceX + (targetX - sourceX) * (i / steps);
-      const currentY = sourceY + (targetY - sourceY) * (i / steps);
-
-      await page.mouse.move(currentX, currentY);
-      await page.waitForTimeout(20);
-    }
-
-    await page.mouse.up();
+  if (!sourceBox || !targetBox) {
+    throw new Error(`drag fixture unavailable: ${sourceTestId}=${!!sourceBox} ${targetTestId}=${!!targetBox}`);
   }
+
+  const sourceX = sourceBox.x + sourceBox.width / 2;
+  const sourceY = sourceBox.y + sourceBox.height / 2;
+  const targetX = targetBox.x + targetBox.width / 2;
+  const targetY = targetBox.y + targetBox.height / 2;
+
+  await page.mouse.move(sourceX, sourceY);
+  await page.mouse.down();
+
+  const steps = 3;
+
+  for (let i = 1; i <= steps; i++) {
+    const currentX = sourceX + (targetX - sourceX) * (i / steps);
+    const currentY = sourceY + (targetY - sourceY) * (i / steps);
+
+    await page.mouse.move(currentX, currentY);
+    await page.waitForTimeout(20);
+  }
+
+  await page.mouse.up();
 
   await page.waitForTimeout(1000);
 };
