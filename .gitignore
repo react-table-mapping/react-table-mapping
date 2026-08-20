@@ -38,3 +38,5 @@ storybook-static
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/docs
+/.claude
