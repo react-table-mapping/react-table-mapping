@@ -32,6 +32,9 @@ describe('contract: lineColor / lineWidth', () => {
     expect(line(harness.container, MAPPING.id).getAttribute('stroke-width')).toBe('4');
   });
 
+  // The values below are what `TableMappingProps` documents in its JSDoc, which is what a
+  // consumer reads in their editor. Nothing at runtime ties the two together, so a change to
+  // either one has to be made in both places.
   it('falls back to documented defaults', () => {
     const harness = renderConsumer({ mappings: [MAPPING] });
 
@@ -50,6 +53,15 @@ describe('contract: hoverLineColor', () => {
     await user.hover(lineGroup(harness.container, MAPPING.id));
 
     expect(line(harness.container, MAPPING.id).getAttribute('stroke')).toBe('#00ff00');
+  });
+
+  it('falls back to a documented default when none is supplied', async () => {
+    const user = userEvent.setup();
+    const harness = renderConsumer({ mappings: [MAPPING] });
+
+    await user.hover(lineGroup(harness.container, MAPPING.id));
+
+    expect(line(harness.container, MAPPING.id).getAttribute('stroke')).toBe('#e3f3ff');
   });
 
   it('reveals the delete affordance while hovered', async () => {

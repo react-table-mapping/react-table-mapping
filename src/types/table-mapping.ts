@@ -291,7 +291,7 @@ export interface TableMappingProps {
 
   /**
    * mapping line color
-   * - default value is `#2196F3`
+   * - default value is `#009bff`
    */
   lineColor?: string;
 
@@ -303,7 +303,7 @@ export interface TableMappingProps {
 
   /**
    * mapping line hover color
-   * - default value is `#ff5722`
+   * - default value is `#e3f3ff`
    */
   hoverLineColor?: string;
 
