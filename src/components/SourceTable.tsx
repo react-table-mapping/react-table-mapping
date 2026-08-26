@@ -3,6 +3,7 @@ import { memo } from 'react';
 
 import EditableCell from '@/components/EditableCell';
 import { Button } from '@/components/ui/button';
+import type { ConnectorRefCallback } from '@/headless/internal/useConnectorRegistry';
 import type { FieldItem, HeaderColumnProps, TableMappingRef } from '@/types/table-mapping';
 
 import NoData from './ui/nodata';
@@ -15,6 +16,7 @@ interface SourceTableProps {
   onBeforeSourceFieldRemove?: (sourceId: string) => void | boolean;
   onAfterSourceFieldRemove?: (removedSourceId: string) => void;
   handleDragStart: (e: React.MouseEvent, sourceId: string) => void;
+  connectorRef: (id: string) => ConnectorRefCallback;
   tableMappingHook: TableMappingRef;
 }
 
@@ -22,10 +24,12 @@ const SourceRow = memo(
   ({
     field,
     handleDragStart,
+    connectorRef,
     disabled,
   }: {
     field: FieldItem;
     handleDragStart: (e: React.MouseEvent, sourceId: string) => void;
+    connectorRef: (id: string) => ConnectorRefCallback;
     disabled?: boolean;
   }) => {
     const { id, key, ...rest } = field;
@@ -53,6 +57,7 @@ const SourceRow = memo(
           return null;
         })}
         <div
+          ref={connectorRef(id)}
           id={`connector-source-${id}`}
           data-testid={`connector-source-${id}`}
           className="source-connector connector"
@@ -73,6 +78,7 @@ const SourceTable = (props: SourceTableProps) => {
     onBeforeSourceFieldRemove,
     onAfterSourceFieldRemove,
     handleDragStart,
+    connectorRef,
     tableMappingHook,
   } = props;
 
@@ -110,7 +116,12 @@ const SourceTable = (props: SourceTableProps) => {
                 <MinusIcon width={12} height={12} />
               </Button>
             ) : null}
-            <SourceRow field={field} handleDragStart={handleDragStart} disabled={disabled} />
+            <SourceRow
+              field={field}
+              handleDragStart={handleDragStart}
+              connectorRef={connectorRef}
+              disabled={disabled}
+            />
           </div>
         ))}
         {sourceFields.length <= 0 ? noDataComponent ? noDataComponent : <NoData /> : null}

@@ -33,18 +33,7 @@ async function pathOf(page: Page, selector: string): Promise<string> {
 }
 
 test.describe('mapping geometry', () => {
-  test('re-measures every line when a row above the mapping is removed', async ({ page, browserName }) => {
-    // KNOWN BUG, recorded as baseline: on Firefox the surviving lines keep stale
-    // coordinates after a row is removed, so they visually detach from their connectors.
-    // createPath() measures during the render phase — before the removal is committed to
-    // the DOM — and the MutationObserver(childList) fallback that rescues this on
-    // Chromium/WebKit produces no state change on Firefox, so no second render happens.
-    //
-    // Phase 2 (connector registry + ResizeObserver + rAF measurement) is expected to fix
-    // this. When it does, Playwright reports "expected to fail but passed" and this marker
-    // must be deleted — which is the point: the gate enforces itself.
-    test.fail(browserName === 'firefox', 'stale line geometry after row removal — expected fix in phase 2');
-
+  test('re-measures every line when a row above the mapping is removed', async ({ page }) => {
     await page.goto('/');
 
     const before = await pathOf(page, PRESET_MAPPING);
@@ -72,6 +61,21 @@ test.describe('mapping geometry', () => {
 
     // The preset line must still resolve to a real path after the table grows.
     expect(await pathOf(page, PRESET_MAPPING)).toMatch(/^M [\d.-]+ [\d.-]+/);
+  });
+
+  test('re-measures every line when the viewport narrows', async ({ page }) => {
+    // A viewport change must leave every line attached to its connectors. One path delivers
+    // that — the container's ResizeObserver — since the window listener that used to route a
+    // resize through redraw() is gone, so this case now fails if that observer stops working.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/');
+
+    const line = page.locator(PRESET_MAPPING).first();
+    const before = await line.getAttribute('d');
+
+    await page.setViewportSize({ width: 700, height: 800 });
+
+    await expect.poll(async () => line.getAttribute('d')).not.toBe(before);
   });
 });
 

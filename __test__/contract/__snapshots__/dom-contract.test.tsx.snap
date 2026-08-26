@@ -74,7 +74,7 @@ exports[`styled DOM contract baseline > renders the frozen structure with mappin
           div.source-table-header-cell
       div.source-table-body
         div.source-table-row-container
-          button.mapping-button.mapping-button.mapping-button--icon.mapping-button--outline
+          button.mapping-button.mapping-button--icon.mapping-button--outline
             svg.lucide.lucide-minus
               path
           div.source-table-row
@@ -86,7 +86,7 @@ exports[`styled DOM contract baseline > renders the frozen structure with mappin
                   path
             div.connector.source-connector#connector-source-source-1@connector-source-source-1
         div.source-table-row-container
-          button.mapping-button.mapping-button.mapping-button--icon.mapping-button--outline
+          button.mapping-button.mapping-button--icon.mapping-button--outline
             svg.lucide.lucide-minus
               path
           div.source-table-row
@@ -124,7 +124,7 @@ exports[`styled DOM contract baseline > renders the frozen structure with mappin
                 svg.lucide.lucide-chevron-down
                   path
             div.connector.target-connector#connector-target-target-1@connector-target-target-1
-          button.mapping-button.mapping-button.mapping-button--icon.mapping-button--outline
+          button.mapping-button.mapping-button--icon.mapping-button--outline
             svg.lucide.lucide-minus
               path
         div.target-table-row-container
@@ -138,7 +138,7 @@ exports[`styled DOM contract baseline > renders the frozen structure with mappin
                 svg.lucide.lucide-chevron-down
                   path
             div.connector.target-connector#connector-target-target-2@connector-target-target-2
-          button.mapping-button.mapping-button.mapping-button--icon.mapping-button--outline
+          button.mapping-button.mapping-button--icon.mapping-button--outline
             svg.lucide.lucide-minus
               path"
 `;

@@ -84,22 +84,15 @@ describe('contract: the member set', () => {
     expect(Object.keys(ref.current!).sort()).toEqual(Object.keys(REF_SURFACE).sort());
   });
 
-  it('recreates method identities on every render — they are not safe as effect deps', () => {
+  it('stays usable after a re-render', () => {
     const { ref } = renderConsumer();
-
-    const before = ref.current!.addMapping;
 
     act(() => ref.current!.redraw());
 
     expect(ref.current!.redrawCount, 'a real re-render must have happened').toBe(1);
 
-    // CURRENT behaviour, pinned deliberately. `useTableMapping` builds fresh closures each
-    // render and `useImperativeHandle` carries no dependency array, so nothing is stable.
-    // If phase 4 decides stable identities are part of the public promise, flip this to
-    // .toBe(before) — that is a source change and a deliberate one, not a test tweak.
-    expect(ref.current!.addMapping).not.toBe(before);
-
-    // Whatever the identity, the method still works.
+    // Whether the method is the same function object across renders is not promised either
+    // way, so nothing here asserts it. What is promised is that calling it still works.
     act(() => ref.current!.addMapping('source-1', 'target-1'));
     expect(ref.current!.getMappings()).toEqual([mappingOf('source-1', 'target-1')]);
   });
@@ -170,21 +163,26 @@ describe('contract: forcing a re-measure', () => {
     setRect(root.querySelector('#connector-target-target-1'), { x: 400, y: 20, width: 10, height: 10 });
   }
 
+  function pathOf(root: HTMLElement) {
+    return root.querySelector('[data-testid="mapping-line-m"] .line-base')!.getAttribute('d');
+  }
+
   it('recomputes the line geometry', () => {
     const harness = renderConsumer({ mappings: [{ id: 'm', source: 'source-1', target: 'target-1' }] });
 
+    // Both endpoints below are derived from the layout above, not read off the output: the
+    // container sits at the origin, a source anchor is the connector's right edge at its
+    // vertical middle, a target anchor is the left edge, and a straight line stops one marker
+    // inset (7) short of the target so the arrowhead sits beside the connector.
     layout(harness.container, 20);
     act(() => harness.ref.current!.redraw());
 
-    const before = harness.container.querySelector('[data-testid="mapping-line-m"] .line-base')!.getAttribute('d');
+    expect(pathOf(harness.container)).toBe('M 200 25 L 393 25');
 
     layout(harness.container, 200);
     act(() => harness.ref.current!.redraw());
 
-    const after = harness.container.querySelector('[data-testid="mapping-line-m"] .line-base')!.getAttribute('d');
-
-    expect(before).toBeTruthy();
-    expect(after).not.toBe(before);
+    expect(pathOf(harness.container)).toBe('M 200 205 L 393 25');
   });
 
   it('does not emit — it is a measurement trigger, not a mutation', () => {

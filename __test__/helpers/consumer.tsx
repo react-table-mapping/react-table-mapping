@@ -15,9 +15,10 @@ import type {
 /**
  * Consumer harness — renders TableMapping the way a real consumer does.
  *
- * The library is fully controlled: it owns no persistent state, and every mutation is
- * reported through `onMappingChange` for the parent to feed back as props. Testing the
- * hook directly with renderHook bypasses that whole contract — the ref path through
+ * The store owns the state. Props initialise it and are reconciled back in whenever their
+ * reference changes, but a mutation lands in the store immediately and is reported through
+ * `onMappingChange` afterwards — so it survives a parent that never feeds it back. Testing
+ * the hook directly with renderHook bypasses that whole contract — the ref path through
  * useImperativeHandle, the prop round-trip, the callback props. This harness exercises
  * the surface a consumer actually touches.
  *

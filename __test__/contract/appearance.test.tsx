@@ -101,6 +101,10 @@ describe('contract: noDataComponent', () => {
 });
 
 describe('contract: disabled', () => {
+  // The enabled counterpart is not asserted here. `creating-mappings` drives its drags with
+  // userEvent, which refuses to touch a `pointer-events: none` element, so seven cases there
+  // already fail if a connector stops being interactive — and they fail on the behaviour
+  // rather than on the mechanism that delivers it.
   it('makes connectors inert', () => {
     const harness = renderConsumer({ disabled: true });
 
@@ -108,15 +112,6 @@ describe('contract: disabled', () => {
 
     expect(connector.style.pointerEvents).toBe('none');
     expect(connector.style.cursor).toBe('not-allowed');
-  });
-
-  it('leaves connectors interactive when enabled', () => {
-    const harness = renderConsumer();
-
-    const connector = harness.container.querySelector<HTMLElement>('#connector-source-source-1')!;
-
-    expect(connector.style.pointerEvents).toBe('auto');
-    expect(connector.style.cursor).toBe('pointer');
   });
 
   it('blocks line hover at the browser level', () => {

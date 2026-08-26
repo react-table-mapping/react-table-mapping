@@ -7,7 +7,6 @@ export interface MappingLinesProps {
   lineColor: string;
   lineWidth: number;
   hoverLineColor: string;
-  forceUpdate: number;
   hoveredMapping: string | null;
   isDragging: boolean;
   disabled: boolean;
@@ -24,7 +23,6 @@ const MappingLines = memo(
     lineColor,
     lineWidth,
     hoverLineColor,
-    forceUpdate,
     hoveredMapping,
     isDragging,
     disabled,
@@ -59,7 +57,7 @@ const MappingLines = memo(
 
           return pathData ? (
             <g
-              key={`${mapping.id}-${forceUpdate}`}
+              key={mapping.id}
               style={{ pointerEvents: disabled ? 'none' : 'auto' }}
               className="mapping-line-group"
               data-testid={`mapping-line-${mapping.id}`}
@@ -95,7 +93,7 @@ const MappingLines = memo(
 
             return pathData ? (
               <g
-                key={`${hoveredMappingData.id}-${forceUpdate}-hovered`}
+                key={`${hoveredMappingData.id}-hovered`}
                 className="mapping-line-group hovered"
                 data-testid={`mapping-line-${hoveredMappingData.id}`}
                 onMouseEnter={() => !isDragging && !disabled && setHoveredMapping(hoveredMappingData.id)}

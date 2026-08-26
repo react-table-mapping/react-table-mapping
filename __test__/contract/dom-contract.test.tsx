@@ -9,14 +9,14 @@ import { serializeStructure } from '../helpers/dom-structure';
 import { setRect } from '../helpers/rects';
 
 /**
- * Phase 0 safety net — styled DOM contract baseline.
+ * Styled DOM contract baseline.
  *
  * ┌──────────────────────────────────────────────────────────────────────────────┐
- * │ TIER 3 · CHARACTERIZATION — but promoted to contract by decision D3           │
+ * │ TIER 1 · CONTRACT                                                            │
  * │                                                                              │
- * │ Expires: only when D3 is repealed, which is a major-release decision.         │
- * │ Then:    deleting this file IS the act of announcing that styled markup is    │
- * │          no longer frozen. That is the point — it cannot happen quietly.      │
+ * │ Permanent. Deleting this file IS the act of announcing that styled markup is  │
+ * │ no longer frozen, which is a major-release decision — it cannot happen        │
+ * │ quietly. A diff here is a semver decision point like any other contract test. │
  * │                                                                              │
  * │ Approved diffs, and nothing else:                                            │
  * │   phase 4 — connector <div> becomes <button>                                 │
@@ -139,7 +139,7 @@ describe('styled DOM contract baseline', () => {
     expect(structureOf(container)).toMatchSnapshot();
   });
 
-  it('preserves the connector DOM ids promised in spec section 8', () => {
+  it('preserves the connector DOM ids promised', () => {
     const { container } = render(
       <TableMapping
         sources={SOURCES}

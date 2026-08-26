@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
 import { afterEach, beforeEach, vi } from 'vitest';
 
+import { FakeResizeObserver, resetResizeObservers } from './helpers/observers';
 import { resetRects } from './helpers/rects';
 
 /**
@@ -31,14 +32,13 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// MutationObserver is implemented natively by jsdom and is intentionally NOT mocked —
-// TableMapping uses it to track container height, so mocking it would erase the behaviour
-// under test.
-//
-// There is deliberately no ResizeObserver fake and no PointerEvent polyfill here. Both were
-// installed globally in advance of work that had not started, which left every test running
-// against fixtures nothing in `src/` used. Install them in the file that needs them, when
-// something needs them.
+// ResizeObserver — absent in jsdom, and useGeometry depends on it. The fake only delivers
+// when a test calls triggerResizeObservers(), so a test that relies on a resize has to say so.
+globalThis.ResizeObserver = FakeResizeObserver;
+
+// MutationObserver is implemented natively by jsdom and is left alone. `TableMapping` used to
+// track container height with it and no longer does, so nothing here depends on it — but
+// replacing a working native implementation with a fake only removes signal.
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -46,4 +46,5 @@ beforeEach(() => {
 
 afterEach(() => {
   resetRects();
+  resetResizeObservers();
 });

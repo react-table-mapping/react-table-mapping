@@ -3,7 +3,8 @@ import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } 
 import MappingLines from '@/components/MappingLines';
 import SourceTable from '@/components/SourceTable';
 import TargetTable from '@/components/TargetTable';
-import { createLinePath } from '@/core/geometry/createLinePath';
+import { useConnectorRegistry } from '@/headless/internal/useConnectorRegistry';
+import { useGeometry } from '@/headless/internal/useGeometry';
 import useTableMapping from '@/hooks/useTableMapping';
 import TableMappingStoreContext from '@/store/TableMappingStoreContext';
 import { type TableMappingProps } from '@/types/table-mapping';
@@ -42,7 +43,6 @@ function TableMapping({
     targetFields,
     mappings: currentMappings,
     redrawCount,
-    redraw,
     addMapping,
     removeMapping,
     _store,
@@ -54,6 +54,16 @@ function TableMapping({
   const sourceTableRef = useRef<HTMLDivElement>(null);
   const targetTableRef = useRef<HTMLDivElement>(null);
   const mappingContainerRef = useRef<HTMLDivElement>(null);
+
+  const registry = useConnectorRegistry();
+  const sourceConnectorRef = useCallback((id: string) => registry.connectorRef('source', id), [registry]);
+  const targetConnectorRef = useCallback((id: string) => registry.connectorRef('target', id), [registry]);
+  const { lines, remeasure } = useGeometry({
+    rootRef: mappingContainerRef,
+    registry,
+    mappings: currentMappings,
+    lineType,
+  });
 
   /**
    * hovering mapping id
@@ -84,10 +94,6 @@ function TableMapping({
     currentY: 0,
   });
 
-  const handleResize = () => {
-    redraw();
-  };
-
   /**
    * start dragging from source connector
    */
@@ -97,7 +103,7 @@ function TableMapping({
     if (!containerRect) return;
 
     // calculate connector position
-    const sourceEl = mappingContainerRef.current?.querySelector(`#connector-source-${sourceId}`);
+    const sourceEl = registry.getConnector('source', sourceId);
 
     if (!sourceEl) return;
 
@@ -164,7 +170,7 @@ function TableMapping({
     const currentY = e.clientY - svgRect.top;
 
     for (const targetField of targetFields) {
-      const targetEl = mappingContainerRef.current?.querySelector(`#connector-target-${targetField.id}`);
+      const targetEl = registry.getConnector('target', targetField.id);
 
       if (!targetEl) continue;
 
@@ -195,40 +201,30 @@ function TableMapping({
   };
 
   /**
-   * create path based on line type
+   * Looks up the measured line for a mapping.
+   *
+   * The measuring itself moved into useGeometry, which runs in a layout effect. Doing it here,
+   * during render, read the layout as it stood before the current change was committed — which
+   * is why removing a row could leave the remaining lines pointing at where its neighbours used
+   * to be.
    */
   const createPath = useCallback(
     (sourceId: string, targetId: string) => {
-      const containerRect = mappingContainerRef.current?.getBoundingClientRect();
+      const line = lines.find((candidate) => candidate.source === sourceId && candidate.target === targetId);
 
-      if (!containerRect) return null;
-
-      const sourceEl = mappingContainerRef.current?.querySelector(`#connector-source-${sourceId}`);
-      const targetEl = mappingContainerRef.current?.querySelector(`#connector-target-${targetId}`);
-
-      if (!sourceEl || !targetEl || !svgRef.current) return null;
-
-      const sourceRect = sourceEl.getBoundingClientRect();
-      const targetRect = targetEl.getBoundingClientRect();
-
-      const startX = sourceRect.right - containerRect.left;
-      const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
-      const endX = targetRect.left - containerRect.left;
-      const endY = targetRect.top + targetRect.height / 2 - containerRect.top;
-
-      const path = createLinePath({ type: lineType, from: { x: startX, y: startY }, to: { x: endX, y: endY } });
+      if (!line) return null;
 
       return {
-        path,
-        startX,
-        startY,
-        endX,
-        endY,
-        midX: startX + (endX - startX) / 2,
-        midY: startY + (endY - startY) / 2,
+        path: line.path,
+        startX: line.from.x,
+        startY: line.from.y,
+        endX: line.to.x,
+        endY: line.to.y,
+        midX: line.mid.x,
+        midY: line.mid.y,
       };
     },
-    [lineType],
+    [lines],
   );
 
   useEffect(() => {
@@ -238,51 +234,32 @@ function TableMapping({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMappings]);
 
-  //mutation observer effect
+  // The SVG canvas has to cover whichever table is taller. This used to watch for childList
+  // mutations, which only fires when rows are added or removed — a row that merely grew, or a
+  // font that finished loading, left the canvas short. Observing size reports every cause.
   useEffect(() => {
-    if (sourceTableRef.current && targetTableRef.current) {
-      const handleSvgHeightResize = (mutations: MutationRecord[]) => {
-        mutations.forEach((mutation) => {
-          if (mutation.type === 'childList') {
-            const sourceTable = sourceTableRef.current;
-            const targetTable = targetTableRef.current;
+    const sourceTable = sourceTableRef.current;
+    const targetTable = targetTableRef.current;
 
-            if (!sourceTable || !targetTable) return;
+    if (!sourceTable || !targetTable) return;
 
-            const containerHeight = Math.max(sourceTable.clientHeight, targetTable.clientHeight);
+    const syncHeight = () => setContainerHeight(Math.max(sourceTable.clientHeight, targetTable.clientHeight));
 
-            setContainerHeight(containerHeight);
-          }
-        });
-      };
+    const observer = new ResizeObserver(syncHeight);
 
-      const tableHeightMutationObserver = new MutationObserver(handleSvgHeightResize);
+    observer.observe(sourceTable);
+    observer.observe(targetTable);
+    syncHeight();
 
-      tableHeightMutationObserver.observe(sourceTableRef.current, {
-        childList: true,
-        subtree: true,
-      });
-
-      tableHeightMutationObserver.observe(targetTableRef.current, {
-        childList: true,
-        subtree: true,
-      });
-
-      return () => {
-        tableHeightMutationObserver.disconnect();
-      };
-    }
+    return () => observer.disconnect();
   }, []);
 
-  //resize effect
+  // The only route from redraw() into a fresh measurement. Nothing inside the component calls
+  // redraw() any more: a viewport change reaches the lines through the container's own resize
+  // observer, so the counter now advances for exactly one reason — the consumer asked it to.
   useEffect(() => {
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (redrawCount > 0) remeasure();
+  }, [redrawCount, remeasure]);
 
   return (
     <TableMappingStoreContext.Provider value={_store}>
@@ -297,6 +274,7 @@ function TableMapping({
           {/* source table */}
           <SourceTable
             sourceTableRef={sourceTableRef}
+            connectorRef={sourceConnectorRef}
             sourceColumns={sourceColumns}
             disabled={disabled}
             noDataComponent={noDataComponent}
@@ -326,7 +304,6 @@ function TableMapping({
               lineColor={lineColor}
               lineWidth={lineWidth}
               hoverLineColor={hoverLineColor}
-              forceUpdate={redrawCount}
               hoveredMapping={hoveredMapping}
               isDragging={dragging?.active}
               disabled={disabled}
@@ -387,6 +364,7 @@ function TableMapping({
           {/* target table */}
           <TargetTable
             targetTableRef={targetTableRef}
+            connectorRef={targetConnectorRef}
             targetColumns={targetColumns}
             disabled={disabled}
             noDataComponent={noDataComponent}

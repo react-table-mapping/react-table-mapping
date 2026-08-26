@@ -75,7 +75,7 @@ describe('createTableMappingStore', () => {
 
   // ─── subscribe / notify ──────────────────────────────────────────────────────
 
-  it('subscribe returns an unsubscribe function', () => {
+  it('stops notifying a listener once it unsubscribes', () => {
     const store = makeStore();
     const listener = vi.fn();
     const unsub = store.subscribe('sources:list', listener);
@@ -114,7 +114,7 @@ describe('createTableMappingStore', () => {
 
   // ─── setFieldValue — debounced emit ──────────────────────────────────────────
 
-  it('setFieldValue debounces emit by 300ms', () => {
+  it('reports a field edit only once typing has settled, carrying the new value', () => {
     const store = makeStore();
     store.setFieldValue('source', 's1', 'name', 'typed');
     expect(emit).not.toHaveBeenCalled();

@@ -18,6 +18,13 @@ const useTableMapping = ({
   mappings: mappingsFromProps,
   onStateChange,
 }: UseTableMappingProps) => {
+  /**
+   * How many times {@link redraw} has been called. Starts at 0 and only ever increases, so it
+   * is safe to use as a React key when a subtree has to be rebuilt alongside a redraw.
+   *
+   * It counts explicit calls and nothing else — the component never redraws itself through
+   * this counter, so a viewport change or a row being added leaves it where it was.
+   */
   const [redrawCount, setRedrawCount] = useState<number>(0);
 
   const latestEmitRef = useRef(onStateChange);
@@ -64,6 +71,17 @@ const useTableMapping = ({
 
   // ─── Redraw ──────────────────────────────────────────────────────────────────
 
+  /**
+   * Re-measures every mapping line against the connectors as they are laid out right now.
+   *
+   * Lines are normally kept in place on their own: the container and the connectors are
+   * observed for size changes, and rows entering or leaving are noticed as they mount. Call
+   * this for a move none of that can see — an ancestor transform, a late-loading font, a
+   * stylesheet applied after mount — where the elements shift without any of them resizing.
+   *
+   * Calling it is safe at any time. It reports nothing to `onMappingChange` and leaves
+   * sources, targets and mappings untouched.
+   */
   const redraw = () => setRedrawCount((prev) => prev + 1);
 
   // ─── Mutations ───────────────────────────────────────────────────────────────

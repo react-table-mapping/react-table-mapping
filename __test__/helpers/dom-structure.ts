@@ -20,8 +20,9 @@ function classOf(el: Element): string {
   const raw = el.getAttribute('class');
   if (!raw) return '';
 
-  // Normalise whitespace and ordering so a cosmetic reshuffle is not a diff.
-  const names = raw.trim().split(/\s+/).filter(Boolean).sort();
+  // Normalise whitespace, ordering and repeats so a cosmetic reshuffle is not a diff. A class
+  // listed twice matches CSS exactly as it would once, so the repeat carries no contract.
+  const names = [...new Set(raw.trim().split(/\s+/).filter(Boolean))].sort();
 
   return names.length ? `.${names.join('.')}` : '';
 }

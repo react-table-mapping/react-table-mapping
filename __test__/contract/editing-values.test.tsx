@@ -155,28 +155,6 @@ describe('contract: BUG FIX — rapid edits across sibling target cells survive 
   });
 });
 
-describe('contract: a typed edit reaches the parent as UPDATE_TARGET_FIELD_VALUE, only after the debounce', () => {
-  it('does not call onMappingChange before the debounce, and does after with the right action', async () => {
-    vi.useFakeTimers();
-    const harness = renderConsumer();
-    const input = harness.container.querySelectorAll<HTMLInputElement>('.target-table-body input')[0];
-
-    act(() => fireEvent.change(input, { target: { value: 'NEW' } }));
-    expect(harness.onMappingChange).not.toHaveBeenCalled();
-
-    await act(async () => {
-      vi.advanceTimersByTime(300);
-    });
-
-    expect(harness.lastAction()).toEqual({
-      type: 'UPDATE_TARGET_FIELD_VALUE',
-      payload: { targetId: 'target-1', fieldKey: 'name', newValue: 'NEW' },
-    });
-
-    vi.useRealTimers();
-  });
-});
-
 describe('contract: an external props push overrides a displayed target value', () => {
   it('shows the pushed value in the input', () => {
     const harness = renderConsumer();
@@ -269,6 +247,7 @@ describe('contract: different fields keep independent debounce timers', () => {
     const [nameInput, dataInput] = harness.container.querySelectorAll<HTMLInputElement>('.target-table-body input');
 
     act(() => fireEvent.change(nameInput, { target: { value: 'NAME-EDIT' } }));
+    expect(harness.onMappingChange, 'a keystroke must not reach the consumer on its own').not.toHaveBeenCalled();
 
     act(() => {
       vi.advanceTimersByTime(200);
@@ -280,13 +259,17 @@ describe('contract: different fields keep independent debounce timers', () => {
       vi.advanceTimersByTime(100); // t=300
     });
     expect(harness.actionTypes()).toEqual(['UPDATE_TARGET_FIELD_VALUE']);
-    expect(harness.lastAction()).toMatchObject({ payload: { fieldKey: 'name', newValue: 'NAME-EDIT' } });
+    expect(harness.lastAction()).toMatchObject({
+      payload: { targetId: 'target-1', fieldKey: 'name', newValue: 'NAME-EDIT' },
+    });
 
     act(() => {
       vi.advanceTimersByTime(200); // t=500 — data's own 300ms since t=200 has now elapsed
     });
     expect(harness.actionTypes()).toEqual(['UPDATE_TARGET_FIELD_VALUE', 'UPDATE_TARGET_FIELD_VALUE']);
-    expect(harness.lastAction()).toMatchObject({ payload: { fieldKey: 'data', newValue: 'DATA-EDIT' } });
+    expect(harness.lastAction()).toMatchObject({
+      payload: { targetId: 'target-1', fieldKey: 'data', newValue: 'DATA-EDIT' },
+    });
 
     vi.useRealTimers();
   });

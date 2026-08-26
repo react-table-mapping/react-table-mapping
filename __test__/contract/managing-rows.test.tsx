@@ -183,21 +183,31 @@ describe('contract: removing a row through the ref', () => {
 
 describe('contract: replacing the whole row list', () => {
   it('updateSourceFields swaps the list and reports both sides', () => {
-    const harness = renderConsumer({ sources: sourceFixture(3) });
+    const previous = sourceFixture(3);
+    const next = sourceFixture(1);
+    const harness = renderConsumer({ sources: previous });
 
-    act(() => harness.ref.current!.updateSourceFields(sourceFixture(1) as never));
+    act(() => harness.ref.current!.updateSourceFields(next as never));
 
-    expect(harness.lastAction()).toMatchObject({ type: 'UPDATE_SOURCE_FIELDS' });
-    expect(harness.state().sources).toHaveLength(1);
+    expect(harness.lastAction()).toEqual({
+      type: 'UPDATE_SOURCE_FIELDS',
+      payload: { previousSources: previous, newSources: next },
+    });
+    expect(harness.state().sources).toEqual(next);
   });
 
   it('updateTargetFields swaps the list and reports both sides', () => {
-    const harness = renderConsumer();
+    const previous = targetFixture(3);
+    const next = targetFixture(1);
+    const harness = renderConsumer({ targets: previous });
 
-    act(() => harness.ref.current!.updateTargetFields(targetFixture(1) as never));
+    act(() => harness.ref.current!.updateTargetFields(next as never));
 
-    expect(harness.lastAction()).toMatchObject({ type: 'UPDATE_TARGET_FIELDS' });
-    expect(harness.state().targets).toHaveLength(1);
+    expect(harness.lastAction()).toEqual({
+      type: 'UPDATE_TARGET_FIELDS',
+      payload: { previousTargets: previous, newTargets: next },
+    });
+    expect(harness.state().targets).toEqual(next);
   });
 
   it('does not prune mappings that point at rows the swap dropped', () => {

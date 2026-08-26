@@ -1,23 +1,21 @@
-import { act, waitFor } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { renderConsumer, sourceFixture, targetFixture } from '../helpers/consumer';
+import { triggerResizeObservers } from '../helpers/observers';
 
 /**
- * Invariant: the mapping canvas height tracks whichever table is taller, and never
- * collapses below its floor.
+ * Invariant: the mapping canvas height tracks whichever table is taller, and never collapses
+ * below its floor.
  *
- * Tier 2 — permanent, implementation-independent. `TableMapping.tsx` currently derives
- * `containerHeight` from a `MutationObserver(childList, subtree)` watching both table refs
- * (`TableMapping.tsx:242-275`); phase 2 of the headless architecture plan
- * (docs/specs/2026-08-05-headless-architecture-plan.md) replaces that with a
- * `ResizeObserver`. These two cases pin the consumer-visible promise, not the mechanism, so
- * the migration can be checked against them instead of a snapshot of the old wiring.
+ * Tier 2 — permanent, implementation-independent. The promise is pinned here, not the wiring
+ * that delivers it: this survived the move from `MutationObserver(childList)` to
+ * `ResizeObserver` with both assertions untouched, only the trigger changing.
  *
- * jsdom does not compute `clientHeight` from layout, so each case stubs it per element
- * (never globally) and triggers a real DOM mutation via the ref API — the same trigger the
- * MutationObserver reacts to in the browser. `MutationObserver` itself is left jsdom-native
- * (`__test__/setup.ts`) precisely so this path can be exercised for real.
+ * jsdom computes no layout, so each case stubs `clientHeight` per element — never globally —
+ * and then delivers a resize. The fake observer in `__test__/setup.ts` fires only when asked,
+ * which is why the trigger is explicit: a test that depends on a resize should say so rather
+ * than have one arrive by accident.
  */
 
 const FLOOR = 180;
@@ -32,60 +30,37 @@ function stubClientHeight(el: Element, height: number): () => void {
 }
 
 describe('invariant: mapping canvas height', () => {
-  it('never collapses below its floor when both tables are shorter than it', async () => {
+  it('never collapses below its floor when both tables are shorter than it', () => {
     const harness = renderConsumer({ sources: sourceFixture(1), targets: targetFixture(1) });
 
-    const sourceTable = harness.container.querySelector('.source-table')!;
-    const targetTable = harness.container.querySelector('.target-table')!;
+    const restoreSource = stubClientHeight(harness.container.querySelector('.source-table')!, 50);
+    const restoreTarget = stubClientHeight(harness.container.querySelector('.target-table')!, 80);
 
-    const restoreSource = stubClientHeight(sourceTable, 50);
-    const restoreTarget = stubClientHeight(targetTable, 80);
+    act(() => triggerResizeObservers());
 
-    // A childList mutation on either observed table is what drives the recompute.
-    act(() => {
-      harness.ref.current!.appendSource({
-        id: 'source-new',
-        key: 'source-new',
-        name: { type: 'string', columnKey: 'name', value: 'NEW' },
-      });
-    });
+    const container = harness.container.querySelector('.mapping-container') as HTMLElement;
 
-    await waitFor(() => {
-      const container = harness.container.querySelector('.mapping-container') as HTMLElement;
-
-      expect(container.style.minHeight).toBe(`${FLOOR}px`);
-    });
+    expect(container.style.minHeight).toBe(`${FLOOR}px`);
 
     restoreSource();
     restoreTarget();
   });
 
-  it('grows to cover whichever table is taller once that exceeds the floor', async () => {
+  it('grows to cover whichever table is taller once that exceeds the floor', () => {
     const harness = renderConsumer({ sources: sourceFixture(1), targets: targetFixture(1) });
-
-    const sourceTable = harness.container.querySelector('.source-table')!;
-    const targetTable = harness.container.querySelector('.target-table')!;
 
     const tallerHeight = FLOOR + 120;
 
-    const restoreSource = stubClientHeight(sourceTable, 100);
-    const restoreTarget = stubClientHeight(targetTable, tallerHeight);
+    const restoreSource = stubClientHeight(harness.container.querySelector('.source-table')!, 100);
+    const restoreTarget = stubClientHeight(harness.container.querySelector('.target-table')!, tallerHeight);
 
-    act(() => {
-      harness.ref.current!.appendTarget({
-        id: 'target-new',
-        key: 'target-new',
-        name: { type: 'input', columnKey: 'name', value: 'NEW' },
-      });
-    });
+    act(() => triggerResizeObservers());
 
-    await waitFor(() => {
-      const container = harness.container.querySelector('.mapping-container') as HTMLElement;
+    const container = harness.container.querySelector('.mapping-container') as HTMLElement;
 
-      // Derived from the taller table's stubbed height, not a literal — survives a
-      // different floor as long as the "grows to match the taller table" promise holds.
-      expect(container.style.minHeight).toBe(`${tallerHeight}px`);
-    });
+    // Derived from the taller table's stubbed height, not a literal — survives a different
+    // floor as long as the "grows to match the taller table" promise holds.
+    expect(container.style.minHeight).toBe(`${tallerHeight}px`);
 
     restoreSource();
     restoreTarget();
