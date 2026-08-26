@@ -82,7 +82,7 @@ const DynamicCell = memo(
       [store, tableType, fieldId, params.columnKey],
     );
 
-    const value = useSyncExternalStore(subscribeField, getFieldSnapshot);
+    const value = useSyncExternalStore(subscribeField, getFieldSnapshot, getFieldSnapshot);
 
     const handleInputChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {

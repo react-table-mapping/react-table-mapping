@@ -58,9 +58,9 @@ const useTableMapping = ({
   const getTargetsSnapshot = useCallback(() => store.getSnapshot().targets, [store]);
   const getMappingsSnapshot = useCallback(() => store.getSnapshot().mappings, [store]);
 
-  const sourceFields = useSyncExternalStore(subscribeSourcesList, getSourcesSnapshot);
-  const targetFields = useSyncExternalStore(subscribeTargetsList, getTargetsSnapshot);
-  const mappings = useSyncExternalStore(subscribeMappings, getMappingsSnapshot);
+  const sourceFields = useSyncExternalStore(subscribeSourcesList, getSourcesSnapshot, getSourcesSnapshot);
+  const targetFields = useSyncExternalStore(subscribeTargetsList, getTargetsSnapshot, getTargetsSnapshot);
+  const mappings = useSyncExternalStore(subscribeMappings, getMappingsSnapshot, getMappingsSnapshot);
 
   // ─── Redraw ──────────────────────────────────────────────────────────────────
 
