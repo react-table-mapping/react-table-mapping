@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 
 import { mappingLine } from './helpers/dnd';
 
@@ -22,6 +22,34 @@ import { mappingLine } from './helpers/dnd';
 
 const PRESET_MAPPING = 'mapping-4-2';
 
+/**
+ * Waits until the mapping line stops moving.
+ *
+ * Lines are measured after the commit that changes them, so there is a frame in which one is
+ * on screen along a path belonging to the layout before. Disabling makes that frame easy to
+ * land on: it takes the remove button and its spacer out of every target row, which moves the
+ * target connectors and so both ends of the line.
+ */
+const linePath = async (page: Page) =>
+  (await mappingLine(page, PRESET_MAPPING).locator('path.line-base').getAttribute('d')) ?? '';
+
+const lineSettled = async (page: Page) => {
+  const read = () => linePath(page);
+
+  let previous = await read();
+
+  await expect
+    .poll(async () => {
+      const current = await read();
+      const settled = current !== '' && current === previous;
+
+      previous = current;
+
+      return settled;
+    })
+    .toBe(true);
+};
+
 test.describe('styled appearance', () => {
   test.skip(({ browserName }) => browserName !== 'chromium', 'baselines are kept for one engine');
   test.skip(!!process.env.CI, 'baselines belong to the machine that took them');
@@ -30,11 +58,7 @@ test.describe('styled appearance', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/');
 
-    // Lines are measured after the first commit, so the mapping is on screen before its path
-    // has a value. Waiting for the path keeps the capture off that intermediate frame.
-    await expect
-      .poll(async () => (await mappingLine(page, PRESET_MAPPING).locator('path.line-base').getAttribute('d')) ?? '')
-      .not.toBe('');
+    await lineSettled(page);
   });
 
   test('with a mapping drawn', async ({ page }) => {
@@ -50,8 +74,18 @@ test.describe('styled appearance', () => {
     await toggle.blur();
 
     await expect(page.locator('#connector-source-0')).toHaveCSS('pointer-events', 'none');
+    await lineSettled(page);
 
-    await expect(page).toHaveScreenshot('disabled.png', { fullPage: true });
+    // The line is masked here and only here. Its own rasterisation drifts by a few hundred
+    // pixels about one run in twelve while the DOM behind it is identical — path data, stroke,
+    // marker and class all measured the same across twenty replays. Raising the tolerance
+    // instead would have swallowed real changes: the connectors going from div to button showed
+    // up as 263. What this shot is for — the tables and connectors while disabled — is
+    // untouched by the mask, and the line is frozen in `default.png`.
+    await expect(page).toHaveScreenshot('disabled.png', {
+      fullPage: true,
+      mask: [page.locator('.mapping-svg')],
+    });
   });
 
   test('with no rows on either side', async ({ page }) => {

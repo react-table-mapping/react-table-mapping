@@ -623,6 +623,23 @@
   background-color: color-mix(in oklab, var(--color-bg-mapping-primary-hover) 20%, transparent);
 }
 
+/**
+ * The connectors are buttons so that they are reachable and announced as controls. Nothing
+ * about the native look is wanted, and the rules that follow set everything that is — so the
+ * UA defaults are cleared here first.
+ *
+ * `box-sizing` is stated rather than left to the cascade: browsers give a button border-box
+ * and a div nothing, so without this the dot would be 10px wide in a page that resets and 14px
+ * in one that does not.
+ */
+.connector {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
 .source-connector {
   position: absolute;
   right: -6px;

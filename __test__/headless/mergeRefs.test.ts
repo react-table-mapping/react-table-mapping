@@ -15,40 +15,40 @@ import { mergeRefs } from '@/headless/internal/mergeRefs';
 
 describe('mergeRefs', () => {
   it('gives the node to the component and to a caller holding a ref object', () => {
-    const ours = vi.fn();
-    const theirs = { current: null as string | null };
+    const internal = vi.fn();
+    const external = { current: null as string | null };
 
-    mergeRefs<string>(ours, theirs)('node');
+    mergeRefs<string>(internal, external)('node');
 
-    expect(ours).toHaveBeenCalledWith('node');
-    expect(theirs.current).toBe('node');
+    expect(internal).toHaveBeenCalledWith('node');
+    expect(external.current).toBe('node');
   });
 
   it('gives the node to a caller holding a callback ref', () => {
-    const ours = vi.fn();
-    const theirs = vi.fn();
+    const internal = vi.fn();
+    const external = vi.fn();
 
-    mergeRefs<string>(ours, theirs)('node');
+    mergeRefs<string>(internal, external)('node');
 
-    expect(ours).toHaveBeenCalledWith('node');
-    expect(theirs).toHaveBeenCalledWith('node');
+    expect(internal).toHaveBeenCalledWith('node');
+    expect(external).toHaveBeenCalledWith('node');
   });
 
   it('passes the unmount along to both, so neither holds a detached node', () => {
-    const ours = vi.fn();
-    const theirs = { current: 'node' as string | null };
+    const internal = vi.fn();
+    const external = { current: 'node' as string | null };
 
-    mergeRefs<string>(ours, theirs)(null);
+    mergeRefs<string>(internal, external)(null);
 
-    expect(ours).toHaveBeenCalledWith(null);
-    expect(theirs.current).toBeNull();
+    expect(internal).toHaveBeenCalledWith(null);
+    expect(external.current).toBeNull();
   });
 
   it('hands back the very same callback when the caller supplied none', () => {
-    const ours = vi.fn();
+    const internal = vi.fn();
 
     // Identity, not just behaviour: a new function here would be detached and re-attached every
     // render, and for a connector that is unregister → register → the render that repeats it.
-    expect(mergeRefs<string>(ours, undefined)).toBe(ours);
+    expect(mergeRefs<string>(internal, undefined)).toBe(internal);
   });
 });

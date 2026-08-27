@@ -4,6 +4,7 @@ import MappingLines from '@/components/MappingLines';
 import SourceTable from '@/components/SourceTable';
 import TargetTable from '@/components/TargetTable';
 import type { Point } from '@/core/types';
+import { useConnectorProps } from '@/headless/internal/useConnectorProps';
 import { useConnectorRegistry } from '@/headless/internal/useConnectorRegistry';
 import { useGeometry } from '@/headless/internal/useGeometry';
 import { usePointerDrag } from '@/headless/internal/usePointerDrag';
@@ -77,8 +78,6 @@ function TableMapping({
   const mappingContainerRef = useRef<HTMLDivElement>(null);
 
   const registry = useConnectorRegistry();
-  const sourceConnectorRef = useCallback((id: string) => registry.connectorRef('source', id), [registry]);
-  const targetConnectorRef = useCallback((id: string) => registry.connectorRef('target', id), [registry]);
   const { lines, remeasure } = useGeometry({
     rootRef: mappingContainerRef,
     registry,
@@ -107,6 +106,8 @@ function TableMapping({
     },
     disabled,
   });
+
+  const getConnectorProps = useConnectorProps({ registry, sourceHandlers });
 
   /**
    * Looks up the measured line for a mapping.
@@ -182,11 +183,10 @@ function TableMapping({
           {/* source table */}
           <SourceTable
             sourceTableRef={sourceTableRef}
-            connectorRef={sourceConnectorRef}
+            getConnectorProps={getConnectorProps}
             sourceColumns={sourceColumns}
             disabled={disabled}
             noDataComponent={noDataComponent}
-            sourceHandlers={sourceHandlers}
             onBeforeSourceFieldRemove={onBeforeSourceFieldRemove}
             onAfterSourceFieldRemove={onAfterSourceFieldRemove}
             tableMappingHook={tableMappingHook}
@@ -261,7 +261,7 @@ function TableMapping({
           {/* target table */}
           <TargetTable
             targetTableRef={targetTableRef}
-            connectorRef={targetConnectorRef}
+            getConnectorProps={getConnectorProps}
             targetColumns={targetColumns}
             disabled={disabled}
             noDataComponent={noDataComponent}

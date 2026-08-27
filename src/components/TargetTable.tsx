@@ -2,7 +2,7 @@ import { MinusIcon } from 'lucide-react';
 import { memo } from 'react';
 
 import EditableCell from '@/components/EditableCell';
-import type { ConnectorRefCallback } from '@/headless/internal/useConnectorRegistry';
+import type { ConnectorProps, GetConnectorPropsParams } from '@/headless/internal/useConnectorProps';
 import type { FieldItem, HeaderColumnProps, TableMappingRef } from '@/types/table-mapping';
 
 import { Button } from './ui/button';
@@ -15,18 +15,18 @@ interface TargetTableProps {
   noDataComponent?: React.ReactNode;
   onBeforeTargetFieldRemove?: (targetId: string) => void | boolean;
   onAfterTargetFieldRemove?: (removedTargetId: string) => void;
-  connectorRef: (id: string) => ConnectorRefCallback;
+  getConnectorProps: (params: GetConnectorPropsParams) => ConnectorProps;
   tableMappingHook: TableMappingRef;
 }
 
 const TargetRow = memo(
   ({
     field,
-    connectorRef,
+    getConnectorProps,
     disabled,
   }: {
     field: FieldItem;
-    connectorRef: (id: string) => ConnectorRefCallback;
+    getConnectorProps: (params: GetConnectorPropsParams) => ConnectorProps;
     disabled?: boolean;
   }) => {
     const { id, key, ...rest } = field;
@@ -53,8 +53,8 @@ const TargetRow = memo(
           }
           return null;
         })}
-        <div
-          ref={connectorRef(id)}
+        <button
+          {...getConnectorProps({ side: 'target', id })}
           id={`connector-target-${id}`}
           data-testid={`connector-target-${id}`}
           className="target-connector connector"
@@ -73,7 +73,7 @@ const TargetTable = (props: TargetTableProps) => {
     noDataComponent,
     onBeforeTargetFieldRemove,
     onAfterTargetFieldRemove,
-    connectorRef,
+    getConnectorProps,
     tableMappingHook,
   } = props;
 
@@ -101,7 +101,7 @@ const TargetTable = (props: TargetTableProps) => {
       <div className="target-table-body">
         {targetFields.map((field) => (
           <div key={field.id || field.key} className="target-table-row-container">
-            <TargetRow field={field} connectorRef={connectorRef} disabled={disabled} />
+            <TargetRow field={field} getConnectorProps={getConnectorProps} disabled={disabled} />
             {!disabled ? (
               <Button
                 className="mapping-button"

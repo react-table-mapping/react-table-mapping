@@ -3,8 +3,7 @@ import { memo } from 'react';
 
 import EditableCell from '@/components/EditableCell';
 import { Button } from '@/components/ui/button';
-import type { ConnectorRefCallback } from '@/headless/internal/useConnectorRegistry';
-import type { PointerDragHandlers } from '@/headless/internal/usePointerDrag';
+import type { ConnectorProps, GetConnectorPropsParams } from '@/headless/internal/useConnectorProps';
 import type { FieldItem, HeaderColumnProps, TableMappingRef } from '@/types/table-mapping';
 
 import NoData from './ui/nodata';
@@ -16,21 +15,18 @@ interface SourceTableProps {
   noDataComponent?: React.ReactNode;
   onBeforeSourceFieldRemove?: (sourceId: string) => void | boolean;
   onAfterSourceFieldRemove?: (removedSourceId: string) => void;
-  sourceHandlers: (sourceId: string) => PointerDragHandlers;
-  connectorRef: (id: string) => ConnectorRefCallback;
+  getConnectorProps: (params: GetConnectorPropsParams) => ConnectorProps;
   tableMappingHook: TableMappingRef;
 }
 
 const SourceRow = memo(
   ({
     field,
-    sourceHandlers,
-    connectorRef,
+    getConnectorProps,
     disabled,
   }: {
     field: FieldItem;
-    sourceHandlers: (sourceId: string) => PointerDragHandlers;
-    connectorRef: (id: string) => ConnectorRefCallback;
+    getConnectorProps: (params: GetConnectorPropsParams) => ConnectorProps;
     disabled?: boolean;
   }) => {
     const { id, key, ...rest } = field;
@@ -57,8 +53,8 @@ const SourceRow = memo(
           }
           return null;
         })}
-        <div
-          ref={connectorRef(id)}
+        <button
+          {...getConnectorProps({ side: 'source', id })}
           id={`connector-source-${id}`}
           data-testid={`connector-source-${id}`}
           className="source-connector connector"
@@ -69,7 +65,6 @@ const SourceRow = memo(
             // pointermove ever reaches the handler.
             touchAction: 'none',
           }}
-          {...sourceHandlers(id)}
         />
       </div>
     );
@@ -84,8 +79,7 @@ const SourceTable = (props: SourceTableProps) => {
     noDataComponent,
     onBeforeSourceFieldRemove,
     onAfterSourceFieldRemove,
-    sourceHandlers,
-    connectorRef,
+    getConnectorProps,
     tableMappingHook,
   } = props;
 
@@ -123,7 +117,7 @@ const SourceTable = (props: SourceTableProps) => {
                 <MinusIcon width={12} height={12} />
               </Button>
             ) : null}
-            <SourceRow field={field} sourceHandlers={sourceHandlers} connectorRef={connectorRef} disabled={disabled} />
+            <SourceRow field={field} getConnectorProps={getConnectorProps} disabled={disabled} />
           </div>
         ))}
         {sourceFields.length <= 0 ? noDataComponent ? noDataComponent : <NoData /> : null}
