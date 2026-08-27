@@ -40,7 +40,7 @@ function TableMapping({
   targetColumns = [],
   lineType = 'straight',
   lineColor = '#009bff',
-  lineWidth = 1.5,
+  lineWidth = 1.7,
   hoverLineColor = '#e3f3ff',
   disabled = false,
   noDataComponent,

@@ -642,14 +642,14 @@
 
 .source-connector {
   position: absolute;
-  right: -6px;
+  right: -9px;
   top: 50%;
   transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
+  width: 15px;
+  height: 15px;
   border-radius: 100%;
   background-color: var(--color-icon-primary);
-  border: 2px solid var(--color-bg-mapping-primary);
+  border: 3px solid var(--color-bg-mapping-primary);
   z-index: 9999;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
@@ -716,14 +716,14 @@
 
 .target-connector {
   position: absolute;
-  left: -6px;
+  left: -9px;
   top: 50%;
   transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
+  width: 15px;
+  height: 15px;
   border-radius: 100%;
   background-color: var(--color-icon-primary);
-  border: 2px solid var(--color-bg-mapping-primary);
+  border: 3px solid var(--color-bg-mapping-primary);
   z-index: 9999;
   cursor: pointer;
   transition: all 0.2s ease-in-out;

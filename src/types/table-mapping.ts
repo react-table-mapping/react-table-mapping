@@ -359,7 +359,7 @@ export interface TableMappingProps {
 
   /**
    * mapping line width
-   * - default value is `1.5`
+   * - default value is `1.7`
    */
   lineWidth?: number;
 

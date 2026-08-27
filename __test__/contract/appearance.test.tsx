@@ -39,7 +39,7 @@ describe('contract: lineColor / lineWidth', () => {
     const harness = renderConsumer({ mappings: [MAPPING] });
 
     expect(line(harness.container, MAPPING.id).getAttribute('stroke')).toBe('#009bff');
-    expect(line(harness.container, MAPPING.id).getAttribute('stroke-width')).toBe('1.5');
+    expect(line(harness.container, MAPPING.id).getAttribute('stroke-width')).toBe('1.7');
   });
 });
 
