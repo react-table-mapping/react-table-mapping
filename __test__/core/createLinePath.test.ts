@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { createLinePath } from '@/core/geometry/createLinePath';
 
 /**
- * Contract: `createLinePath` is part of the `/core` published subpath (spec section 4), so
- * these assert the *shape* each line type promises a consumer — not pixel snapshots. The
- * pixel-exact baseline lives in `__test__/characterization/geometry-baseline.test.tsx` and
- * expires at phase 3; this file is its permanent replacement.
+ * Contract: `createLinePath` is part of the `/core` published subpath, so these assert the
+ * *shape* each line type promises a consumer, plus the one exact number in that promise —
+ * the marker inset a straight line stops short by. The relationship those coordinates have
+ * to the connectors is `invariant/line-anchors.test.tsx`'s job, not this file's.
  */
 
 function parseNumbers(d: string): number[] {

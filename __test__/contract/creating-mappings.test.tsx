@@ -165,13 +165,10 @@ describe('contract: pairing rows by matching value', () => {
  * they stay at the origin layout only.
  *
  * Interaction route: `@testing-library/user-event`'s `pointer()` API, which emits the full
- * pointerdown/mousedown -> pointermove/mousemove -> pointerup/mouseup sequence. The current
- * implementation only wires the mouse events, but phase 3 of the headless migration
- * (docs/specs/2026-08-05-headless-architecture-plan.md) replaces them with pointer events
- * and `setPointerCapture`. A test built on bare `fireEvent.mouseDown/mouseMove/mouseUp`
- * would pass today and go red at phase 3 for a change that keeps the consumer promise
- * intact — that is a shackle. Driving through `pointer()` keeps this file valid across the
- * migration instead of needing a rewrite.
+ * pointerdown/mousedown -> pointermove/mousemove -> pointerup/mouseup sequence. Written that
+ * way before the component moved off mouse events, and it survived the move untouched apart
+ * from where each step is aimed — a file built on bare `fireEvent.mouseDown/mouseMove/mouseUp`
+ * would have gone red for a change no consumer could see.
  */
 
 interface DragLayout {
@@ -248,7 +245,18 @@ function targetDropPoint(container: HTMLElement, targetId: string): { clientX: n
   return { clientX: rect.left, clientY: rect.top + rect.height / 2 };
 }
 
-/** Full drag gesture: press on a source connector, move across the svg, release over it. */
+/**
+ * Full drag gesture: press on a source connector, move to a point, release there.
+ *
+ * Every step is aimed at the source connector because that is where the browser sends them
+ * once it has captured the pointer — the coordinates say where the pointer really is. jsdom
+ * implements neither hit testing nor capture, so nothing here would retarget on its own.
+ *
+ * That means these cases cannot tell whether `setPointerCapture` was called: aiming the
+ * gesture by hand is exactly what capture would have done. `e2e/dnd.spec.ts` is where that
+ * is settled — a real browser without capture delivers the release to whatever sits under
+ * the cursor, so the drop never reaches the source and no mapping appears at all.
+ */
 async function dragSourceOnto(
   user: UserEvent,
   container: HTMLElement,
@@ -256,14 +264,13 @@ async function dragSourceOnto(
   dropPoint: { clientX: number; clientY: number },
 ): Promise<void> {
   const sourceConnector = container.querySelector(`#connector-source-${sourceId}`);
-  const svg = container.querySelector('.mapping-svg');
 
-  if (!sourceConnector || !svg) throw new Error('drag fixture missing connector or svg — check the selector.');
+  if (!sourceConnector) throw new Error('drag fixture missing source connector — check the selector.');
 
   await user.pointer([
     { keys: '[MouseLeft>]', target: sourceConnector },
-    { target: svg, coords: dropPoint },
-    { keys: '[/MouseLeft]', target: svg },
+    { target: sourceConnector, coords: dropPoint },
+    { keys: '[/MouseLeft]', target: sourceConnector, coords: dropPoint },
   ]);
 }
 
@@ -278,13 +285,12 @@ async function startDragTo(
   point: { clientX: number; clientY: number },
 ): Promise<void> {
   const sourceConnector = container.querySelector(`#connector-source-${sourceId}`);
-  const svg = container.querySelector('.mapping-svg');
 
-  if (!sourceConnector || !svg) throw new Error('drag fixture missing connector or svg — check the selector.');
+  if (!sourceConnector) throw new Error('drag fixture missing source connector — check the selector.');
 
   await user.pointer([
     { keys: '[MouseLeft>]', target: sourceConnector },
-    { target: svg, coords: point },
+    { target: sourceConnector, coords: point },
   ]);
 }
 
@@ -308,6 +314,24 @@ function pathEndpoint(d: string): { x: number; y: number } {
 }
 
 describe.each(DRAG_LAYOUTS)('contract: dragging a connector onto a target — $name', (layout) => {
+  it('connects from near the connector, not only from exactly on it', async () => {
+    const user = userEvent.setup();
+    const harness = renderConsumer();
+
+    layoutConnectors(harness.container, layout);
+
+    // Short of the connector by less than the 15px reach a drop is allowed. Every other drag
+    // case here lands on the anchor itself, so without this one the reach is never exercised.
+    const anchor = targetDropPoint(harness.container, 'target-2');
+
+    await dragSourceOnto(user, harness.container, 'source-1', {
+      clientX: anchor.clientX - 10,
+      clientY: anchor.clientY,
+    });
+
+    expect(harness.state().mappings).toEqual([mappingOf('source-1', 'target-2')]);
+  });
+
   it('creates the mapping and reports it to the consumer', async () => {
     const user = userEvent.setup();
     const harness = renderConsumer();

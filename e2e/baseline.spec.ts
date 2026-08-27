@@ -1,6 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
 
-import { performDragAndDrop, verifyMappingCount } from './helpers/dnd';
+import { dragConnector, mappingLine, mappingLineHitArea, mappingLines } from './helpers/dnd';
 
 /**
  * Phase 0 safety net — behavioural e2e baseline.
@@ -48,7 +48,7 @@ test.describe('mapping geometry', () => {
       .poll(async () => pathOf(page, PRESET_MAPPING), { message: 'line path should be recomputed' })
       .not.toBe(before);
 
-    await verifyMappingCount(page, 1);
+    await expect(mappingLines(page)).toHaveCount(1);
   });
 
   test('re-measures when a source is appended', async ({ page }) => {
@@ -57,7 +57,7 @@ test.describe('mapping geometry', () => {
     await page.getByRole('button', { name: 'Add Source' }).click();
 
     await expect(page.locator('[data-testid^="connector-source-"]')).toHaveCount(6);
-    await verifyMappingCount(page, 1);
+    await expect(mappingLines(page)).toHaveCount(1);
 
     // The preset line must still resolve to a real path after the table grows.
     expect(await pathOf(page, PRESET_MAPPING)).toMatch(/^M [\d.-]+ [\d.-]+/);
@@ -109,22 +109,24 @@ test.describe('disabled', () => {
     await page.goto('/');
     await page.getByRole('checkbox').check();
 
-    await performDragAndDrop({ page, sourceTestId: 'connector-source-0', targetTestId: 'connector-target-0' });
+    await dragConnector({ page, from: 'connector-source-0', to: 'connector-target-0' });
 
-    await verifyMappingCount(page, 1);
+    await expect(mappingLine(page, 'mapping-0-0'), 'a drag should draw nothing while disabled').not.toBeAttached();
 
-    await page.locator('[data-testid="mapping-line-mapping-4-2"] path.hover-area').click({ force: true });
-    await verifyMappingCount(page, 1);
+    await mappingLineHitArea(page, 'mapping-4-2').click({ force: true });
+
+    await expect(mappingLine(page, 'mapping-4-2'), 'a click should remove nothing while disabled').toBeAttached();
+    await expect(mappingLines(page)).toHaveCount(1);
   });
 });
 
 test.describe('ref-driven mutations', () => {
   test('clearMappings removes every line', async ({ page }) => {
     await page.goto('/');
-    await verifyMappingCount(page, 1);
+    await expect(mappingLines(page)).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Clear Mappings' }).click();
-    await verifyMappingCount(page, 0);
+    await expect(mappingLines(page)).toHaveCount(0);
   });
 
   test('sameLineMapping pairs rows up to the shorter table', async ({ page }) => {
@@ -133,6 +135,6 @@ test.describe('ref-driven mutations', () => {
     await page.getByRole('button', { name: 'Same Line Mapping' }).click();
 
     // 5 sources, 3 targets — the shorter side wins.
-    await verifyMappingCount(page, 3);
+    await expect(mappingLines(page)).toHaveCount(3);
   });
 });

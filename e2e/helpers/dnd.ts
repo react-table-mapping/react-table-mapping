@@ -1,48 +1,52 @@
-import { type Page, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-interface PerformDndTestParams {
+/** Every mapping line currently drawn. */
+export const mappingLines = (page: Page) => page.locator('[data-testid^="mapping-line-"]');
+
+/** One mapping's line, by the mapping's id. */
+export const mappingLine = (page: Page, mappingId: string) => page.locator(`[data-testid="mapping-line-${mappingId}"]`);
+
+/** The wide invisible stroke along a line that takes the click to remove it. */
+export const mappingLineHitArea = (page: Page, mappingId: string) =>
+  page.locator(`[data-testid="mapping-line-${mappingId}"] path.hover-area`);
+
+export interface DragConnectorParams {
   page: Page;
-  sourceTestId: string;
-  targetTestId: string;
+  /** `data-testid` of the source connector to press on. */
+  from: string;
+  /** `data-testid` of the target connector to drag towards. */
+  to: string;
+  /**
+   * Release this many pixels to the left of the target connector's left edge, instead of on
+   * its centre. That edge is where a line arrives and where the reach is measured from, so
+   * this is the distance the drop has to cover.
+   */
+  releaseShortBy?: number;
 }
 
-export const performDragAndDrop = async (params: PerformDndTestParams) => {
-  const { page, sourceTestId, targetTestId } = params;
-
-  const sourceConnector = page.locator(`[data-testid="${sourceTestId}"]`);
-  const targetConnector = page.locator(`[data-testid="${targetTestId}"]`);
-
-  const sourceBox = await sourceConnector.boundingBox();
-  const targetBox = await targetConnector.boundingBox();
+/** Presses a source connector and releases over (or near) a target one. */
+export const dragConnector = async ({ page, from, to, releaseShortBy }: DragConnectorParams) => {
+  const sourceBox = await page.locator(`[data-testid="${from}"]`).boundingBox();
+  const targetBox = await page.locator(`[data-testid="${to}"]`).boundingBox();
 
   if (!sourceBox || !targetBox) {
-    throw new Error(`drag fixture unavailable: ${sourceTestId}=${!!sourceBox} ${targetTestId}=${!!targetBox}`);
+    throw new Error(`drag fixture unavailable: ${from}=${!!sourceBox} ${to}=${!!targetBox}`);
   }
 
-  const sourceX = sourceBox.x + sourceBox.width / 2;
-  const sourceY = sourceBox.y + sourceBox.height / 2;
-  const targetX = targetBox.x + targetBox.width / 2;
-  const targetY = targetBox.y + targetBox.height / 2;
+  const startX = sourceBox.x + sourceBox.width / 2;
+  const startY = sourceBox.y + sourceBox.height / 2;
+  const endX = releaseShortBy === undefined ? targetBox.x + targetBox.width / 2 : targetBox.x - releaseShortBy;
+  const endY = targetBox.y + targetBox.height / 2;
 
-  await page.mouse.move(sourceX, sourceY);
+  await page.mouse.move(startX, startY);
   await page.mouse.down();
 
   const steps = 3;
 
-  for (let i = 1; i <= steps; i++) {
-    const currentX = sourceX + (targetX - sourceX) * (i / steps);
-    const currentY = sourceY + (targetY - sourceY) * (i / steps);
-
-    await page.mouse.move(currentX, currentY);
+  for (let step = 1; step <= steps; step++) {
+    await page.mouse.move(startX + (endX - startX) * (step / steps), startY + (endY - startY) * (step / steps));
     await page.waitForTimeout(20);
   }
 
   await page.mouse.up();
-
-  await page.waitForTimeout(1000);
-};
-
-export const verifyMappingCount = async (page: Page, expectedCount: number) => {
-  const mappingLines = page.locator('[data-testid^="mapping-line-"]');
-  await expect(mappingLines).toHaveCount(expectedCount);
 };

@@ -72,20 +72,14 @@ export function useGeometry({
 
   const remeasure = useCallback(() => setVersion((current) => current + 1), []);
 
-  // Read through a ref so the measuring effect does not have to re-subscribe every time the
-  // mapping list or a styling option changes.
-  const inputs = useRef({ mappings, lineType, sourceAnchor, targetAnchor, anchorOffset });
-  inputs.current = { mappings, lineType, sourceAnchor, targetAnchor, anchorOffset };
-
   const measure = useCallback(() => {
     const root = rootRef.current;
 
     if (!root) return;
 
     const containerRect = root.getBoundingClientRect();
-    const current = inputs.current;
 
-    const next = current.mappings.reduce<GeometryLine[]>((accumulated, mapping) => {
+    const next = mappings.reduce<GeometryLine[]>((accumulated, mapping) => {
       const sourceElement = registry.getConnector('source', mapping.source);
       const targetElement = registry.getConnector('target', mapping.target);
 
@@ -94,22 +88,22 @@ export function useGeometry({
       const from = resolveAnchor({
         rect: sourceElement.getBoundingClientRect(),
         containerRect,
-        spec: current.sourceAnchor,
-        offset: current.anchorOffset,
+        spec: sourceAnchor,
+        offset: anchorOffset,
       });
 
       const to = resolveAnchor({
         rect: targetElement.getBoundingClientRect(),
         containerRect,
-        spec: current.targetAnchor,
-        offset: current.anchorOffset,
+        spec: targetAnchor,
+        offset: anchorOffset,
       });
 
       accumulated.push({
         id: mapping.id,
         source: mapping.source,
         target: mapping.target,
-        path: createLinePath({ type: current.lineType, from, to }),
+        path: createLinePath({ type: lineType, from, to }),
         from,
         to,
         mid: { x: from.x + (to.x - from.x) / 2, y: from.y + (to.y - from.y) / 2 },
@@ -119,7 +113,7 @@ export function useGeometry({
     }, []);
 
     setLines(next);
-  }, [registry, rootRef]);
+  }, [registry, rootRef, mappings, lineType, sourceAnchor, targetAnchor, anchorOffset]);
 
   const scheduleMeasure = useCallback(() => {
     if (frame.current !== null) return;
@@ -132,7 +126,7 @@ export function useGeometry({
 
   useLayoutEffect(() => {
     measure();
-  }, [measure, mappings, lineType, sourceAnchor, targetAnchor, anchorOffset, registry.version, version]);
+  }, [measure, version]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;

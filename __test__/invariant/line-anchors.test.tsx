@@ -11,13 +11,14 @@ import { setRect } from '../helpers/rects';
  *
  * Tier 2 — permanent, implementation-independent.
  *
- * This is the assertion that survives the migration. The `d`-string snapshots in
- * geometry-baseline.test.tsx pin exact coordinates, which is the right tool for proving a
- * refactor changed nothing, but they cannot say WHY a value is correct and they go stale
- * the moment anything legitimately moves. These assertions state the relationship instead:
- * whatever resolveAnchor() ends up computing, the line still has to touch its connectors.
+ * This is the assertion that survived the move off the old measurement path. A snapshot of
+ * `d`-strings proves a refactor changed nothing, which is the right tool while one is under
+ * way, but it cannot say WHY a value is correct and it goes stale the moment anything
+ * legitimately moves. These assertions state the relationship instead: whatever
+ * `resolveAnchor()` ends up computing, the line still has to touch its connectors.
  *
- * Phase 3 completion converts geometry-baseline into a deleted file and leaves this one.
+ * Measured rather than argued — raising the marker inset past the tolerance below fails these
+ * cases on its own, with no snapshot involved.
  */
 
 /** Largest gap tolerated between the line end and the target connector (arrow marker inset). */

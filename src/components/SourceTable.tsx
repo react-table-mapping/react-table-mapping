@@ -4,6 +4,7 @@ import { memo } from 'react';
 import EditableCell from '@/components/EditableCell';
 import { Button } from '@/components/ui/button';
 import type { ConnectorRefCallback } from '@/headless/internal/useConnectorRegistry';
+import type { PointerDragHandlers } from '@/headless/internal/usePointerDrag';
 import type { FieldItem, HeaderColumnProps, TableMappingRef } from '@/types/table-mapping';
 
 import NoData from './ui/nodata';
@@ -15,7 +16,7 @@ interface SourceTableProps {
   noDataComponent?: React.ReactNode;
   onBeforeSourceFieldRemove?: (sourceId: string) => void | boolean;
   onAfterSourceFieldRemove?: (removedSourceId: string) => void;
-  handleDragStart: (e: React.MouseEvent, sourceId: string) => void;
+  sourceHandlers: (sourceId: string) => PointerDragHandlers;
   connectorRef: (id: string) => ConnectorRefCallback;
   tableMappingHook: TableMappingRef;
 }
@@ -23,12 +24,12 @@ interface SourceTableProps {
 const SourceRow = memo(
   ({
     field,
-    handleDragStart,
+    sourceHandlers,
     connectorRef,
     disabled,
   }: {
     field: FieldItem;
-    handleDragStart: (e: React.MouseEvent, sourceId: string) => void;
+    sourceHandlers: (sourceId: string) => PointerDragHandlers;
     connectorRef: (id: string) => ConnectorRefCallback;
     disabled?: boolean;
   }) => {
@@ -61,8 +62,14 @@ const SourceRow = memo(
           id={`connector-source-${id}`}
           data-testid={`connector-source-${id}`}
           className="source-connector connector"
-          style={{ cursor: disabled ? 'not-allowed' : 'pointer', pointerEvents: disabled ? 'none' : 'auto' }}
-          onMouseDown={(e) => !disabled && handleDragStart(e, id)}
+          style={{
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            pointerEvents: disabled ? 'none' : 'auto',
+            // Without this a touch drag is claimed by the browser as a scroll gesture and no
+            // pointermove ever reaches the handler.
+            touchAction: 'none',
+          }}
+          {...sourceHandlers(id)}
         />
       </div>
     );
@@ -77,7 +84,7 @@ const SourceTable = (props: SourceTableProps) => {
     noDataComponent,
     onBeforeSourceFieldRemove,
     onAfterSourceFieldRemove,
-    handleDragStart,
+    sourceHandlers,
     connectorRef,
     tableMappingHook,
   } = props;
@@ -116,12 +123,7 @@ const SourceTable = (props: SourceTableProps) => {
                 <MinusIcon width={12} height={12} />
               </Button>
             ) : null}
-            <SourceRow
-              field={field}
-              handleDragStart={handleDragStart}
-              connectorRef={connectorRef}
-              disabled={disabled}
-            />
+            <SourceRow field={field} sourceHandlers={sourceHandlers} connectorRef={connectorRef} disabled={disabled} />
           </div>
         ))}
         {sourceFields.length <= 0 ? noDataComponent ? noDataComponent : <NoData /> : null}
