@@ -7,6 +7,8 @@ import type { Point } from '@/core/types';
 import { useConnectorProps } from '@/headless/internal/useConnectorProps';
 import { useConnectorRegistry } from '@/headless/internal/useConnectorRegistry';
 import { useGeometry } from '@/headless/internal/useGeometry';
+import { useLayoutProps } from '@/headless/internal/useLayoutProps';
+import { useMappingProps } from '@/headless/internal/useMappingProps';
 import { usePointerDrag } from '@/headless/internal/usePointerDrag';
 import useTableMapping from '@/hooks/useTableMapping';
 import TableMappingStoreContext from '@/store/TableMappingStoreContext';
@@ -72,7 +74,6 @@ function TableMapping({
 
   useImperativeHandle(ref, () => tableMappingHook);
 
-  const svgRef = useRef<SVGSVGElement>(null);
   const sourceTableRef = useRef<HTMLDivElement>(null);
   const targetTableRef = useRef<HTMLDivElement>(null);
   const mappingContainerRef = useRef<HTMLDivElement>(null);
@@ -84,11 +85,6 @@ function TableMapping({
     mappings: currentMappings,
     lineType,
   });
-
-  /**
-   * hovering mapping id
-   */
-  const [hoveredMapping, setHoveredMapping] = useState<string | null>(null);
 
   /**
    * personal instance of container Height
@@ -108,6 +104,21 @@ function TableMapping({
   });
 
   const getConnectorProps = useConnectorProps({ registry, sourceHandlers });
+  const { getRootProps, getCanvasProps } = useLayoutProps({ rootRef: mappingContainerRef });
+  // The library reports that a line was activated; the decision to remove it stays here,
+  // where the consumer's own before/after hooks are.
+  const { hoveredMappingId, clearHoveredMapping, getMappingLineProps, getRemoveMappingProps } = useMappingProps({
+    disabled: disabled || drag.status === 'pointer',
+    onRemove: (mappingId) => {
+      if (onBeforeMappingLineRemove?.(mappingId) === false) return;
+
+      removeMapping(mappingId);
+      onAfterMappingLineRemove?.(mappingId);
+    },
+  });
+
+  const rootProps = getRootProps();
+  const canvasProps = getCanvasProps();
 
   /**
    * Looks up the measured line for a mapping.
@@ -174,9 +185,10 @@ function TableMapping({
     <TableMappingStoreContext.Provider value={_store}>
       <div className="react-table-mapping">
         <div
-          ref={mappingContainerRef}
+          {...rootProps}
           className="mapping-container"
           style={{
+            ...rootProps.style,
             minHeight: containerHeight !== 0 && containerHeight > 180 ? `${containerHeight}px` : '180px',
           }}
         >
@@ -194,12 +206,13 @@ function TableMapping({
 
           {/* SVG mapping line */}
           <svg
-            ref={svgRef}
+            {...canvasProps}
             className="mapping-svg"
             style={{
+              ...canvasProps.style,
               minHeight: containerHeight !== 0 && containerHeight > 180 ? `${containerHeight}px` : '180px',
             }}
-            onMouseLeave={() => setHoveredMapping(null)}
+            onMouseLeave={clearHoveredMapping}
           >
             {/* mapping line */}
             <MappingLines
@@ -207,13 +220,11 @@ function TableMapping({
               lineColor={lineColor}
               lineWidth={lineWidth}
               hoverLineColor={hoverLineColor}
-              hoveredMapping={hoveredMapping}
+              hoveredMappingId={hoveredMappingId}
               isDragging={drag.status === 'pointer'}
               disabled={disabled}
-              removeMapping={removeMapping}
-              setHoveredMapping={setHoveredMapping}
-              onBeforeMappingLineRemove={onBeforeMappingLineRemove}
-              onAfterMappingLineRemove={onAfterMappingLineRemove}
+              getMappingLineProps={getMappingLineProps}
+              getRemoveMappingProps={getRemoveMappingProps}
               mappings={currentMappings}
             />
 
