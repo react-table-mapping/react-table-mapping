@@ -3,7 +3,14 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { createTableMappingStore } from '@/core/store/createTableMappingStore';
 import type { TableMappingStore } from '@/core/store/createTableMappingStore';
 import { createId } from '@/core/utils/createId';
-import type { FieldItem, FieldItemInput, Mapping, TableMappingStateWithAction } from '@/types/table-mapping';
+import type {
+  FieldItem,
+  FieldItemDraft,
+  FieldItemInput,
+  Mapping,
+  TableMappingRef,
+  TableMappingStateWithAction,
+} from '@/types/table-mapping';
 
 interface UseTableMappingProps {
   sources: FieldItemInput[];
@@ -17,7 +24,7 @@ const useTableMapping = ({
   targets: targetsFromProps,
   mappings: mappingsFromProps,
   onStateChange,
-}: UseTableMappingProps) => {
+}: UseTableMappingProps): TableMappingRef => {
   /**
    * How many times {@link redraw} has been called. Starts at 0 and only ever increases, so it
    * is safe to use as a React key when a subtree has to be rebuilt alongside a redraw.
@@ -86,12 +93,12 @@ const useTableMapping = ({
 
   // ─── Mutations ───────────────────────────────────────────────────────────────
 
-  const appendSource = (source: FieldItem) => {
+  const appendSource = (source: FieldItemDraft) => {
     const newSource: FieldItem = { ...source, id: source.id || `source-${createId()}` };
     store.appendSource(newSource);
   };
 
-  const appendTarget = (target: FieldItem) => {
+  const appendTarget = (target: FieldItemDraft) => {
     const newTarget: FieldItem = { ...target, id: target.id || `target-${createId()}` };
     store.appendTarget(newTarget);
   };

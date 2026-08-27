@@ -1,4 +1,4 @@
-import useTableMapping from '@/hooks/useTableMapping';
+import type { TableMappingStore } from '@/core/store/createTableMappingStore';
 
 /**
  * svg line type
@@ -108,6 +108,18 @@ export interface Mapping {
  * field item without internal properties (for user input)
  */
 export type FieldItemInput = Partial<FieldItem>;
+
+/**
+ * A field being handed to `appendSource` / `appendTarget`.
+ *
+ * The `id` is optional there and only there: leave it out and one is generated, prefixed with
+ * the side the field is being added to. Everything else a field needs is still required, since
+ * nothing else is filled in for you.
+ */
+export interface FieldItemDraft extends Partial<OuterFieldItem> {
+  id?: string;
+  key: string;
+}
 
 /**
  * State change callback type
@@ -252,7 +264,57 @@ export interface TableMappingStateWithAction extends TableMappingState {
   action: NotifyAction;
 }
 
-export type TableMappingRef = ReturnType<typeof useTableMapping>;
+/**
+ * What `ref` gives you: the component's data as it stands, plus every mutation you can drive
+ * from outside it.
+ *
+ * Written out rather than inferred from the hook behind it. While it was inferred, editing that
+ * hook changed this published type without anything saying so — a parameter widened there
+ * arrived in a consumer's editor with no decision having been made about it.
+ */
+export interface TableMappingRef {
+  /** The source rows as they stand. Re-read after a mutation rather than held onto. */
+  sourceFields: FieldItem[];
+  /** The target rows as they stand. */
+  targetFields: FieldItem[];
+  /** The mappings as they stand. */
+  mappings: Mapping[];
+  /** How many times {@link redraw} has been called. Only ever increases. */
+  redrawCount: number;
+
+  /** Reads the current rows and mappings without waiting for a render. */
+  getSourceFields: () => FieldItem[];
+  getTargetFields: () => FieldItem[];
+  getMappings: () => Mapping[];
+
+  addMapping: (sourceId: string, targetId: string) => void;
+  removeMapping: (mappingId: string) => void;
+  clearMappings: () => void;
+  updateMappings: (next: Mapping[]) => void;
+  /** Pairs rows by position, stopping at whichever table is shorter. */
+  sameLineMapping: () => void;
+  /** Pairs rows whose value in the given column matches. Replaces any existing mappings. */
+  sameNameMapping: (name: string) => void;
+
+  /** Adds a row to the end. Leave the `id` out and one is generated. */
+  appendSource: (source: FieldItemDraft) => void;
+  /** Removes the row and any mappings that referenced it. */
+  removeSource: (sourceId: string) => void;
+  /** Replaces the whole list. Unlike {@link removeSource}, leaves mappings alone. */
+  updateSourceFields: (next: FieldItem[]) => void;
+  updateSourceFieldValue: (sourceId: string, fieldKey: string, newValue: string) => void;
+
+  appendTarget: (target: FieldItemDraft) => void;
+  removeTarget: (targetId: string) => void;
+  updateTargetFields: (next: FieldItem[]) => void;
+  updateTargetFieldValue: (targetId: string, fieldKey: string, newValue: string) => void;
+
+  /** Re-measures every line. For a move no observer can see — see the JSDoc on the hook. */
+  redraw: () => void;
+
+  /** @internal Reachable, but not part of what this package supports. */
+  _store: TableMappingStore;
+}
 
 export interface TableMappingProps {
   ref?: React.RefObject<TableMappingRef | null>;

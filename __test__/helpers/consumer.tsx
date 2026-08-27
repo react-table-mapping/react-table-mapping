@@ -4,6 +4,7 @@ import { type Mock, vi } from 'vitest';
 
 import TableMapping from '@/components/TableMapping';
 import type {
+  FieldItem,
   FieldItemInput,
   Mapping,
   NotifyAction,
@@ -29,7 +30,7 @@ import type {
 export const SOURCE_COLUMNS = [{ key: 'name', title: 'Name' }];
 export const TARGET_COLUMNS = [{ key: 'name', title: 'Name' }];
 
-export function sourceFixture(count = 3): FieldItemInput[] {
+export function sourceFixture(count = 3): FieldItem[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `source-${i + 1}`,
     key: `source-${i + 1}`,
@@ -37,7 +38,7 @@ export function sourceFixture(count = 3): FieldItemInput[] {
   }));
 }
 
-export function targetFixture(count = 3): FieldItemInput[] {
+export function targetFixture(count = 3): FieldItem[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `target-${i + 1}`,
     key: `target-${i + 1}`,

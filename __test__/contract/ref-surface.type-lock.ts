@@ -44,7 +44,19 @@
  * phase 4 touches this area, but out of scope for this freeze.
  */
 import type { TableMappingStore } from '@/core/store/createTableMappingStore';
-import type { FieldItem, Mapping, TableMappingRef } from '@/types/table-mapping';
+import type { FieldItem, FieldItemDraft, Mapping, TableMappingRef } from '@/types/table-mapping';
+
+/**
+ * DELIBERATE EDIT — 2026-08-27
+ *
+ * `appendSource` / `appendTarget` took `FieldItem`, which requires an `id`, while the code
+ * behind them generated one when it was missing. The documented behaviour was unreachable
+ * through the published type, and the suite could only reach it by casting. They now take
+ * `FieldItemDraft`: the same field with `id` optional, and nothing else loosened.
+ *
+ * Widening a parameter is not breaking — every call that compiled before still compiles, and
+ * the runtime is untouched. It is a minor-release change, and this edit is the record of it.
+ */
 
 // Hand-written snapshot of TableMappingRef's current member set (23 members), each signature
 // copied from `useTableMapping.ts`'s return statement and cross-checked against
@@ -71,13 +83,13 @@ interface TableMappingRefSnapshot {
   sameNameMapping: (name: string) => void;
 
   // Source mutations
-  appendSource: (source: FieldItem) => void;
+  appendSource: (source: FieldItemDraft) => void;
   removeSource: (sourceId: string) => void;
   updateSourceFields: (next: FieldItem[]) => void;
   updateSourceFieldValue: (sourceId: string, fieldKey: string, newValue: string) => void;
 
   // Target mutations
-  appendTarget: (target: FieldItem) => void;
+  appendTarget: (target: FieldItemDraft) => void;
   removeTarget: (targetId: string) => void;
   updateTargetFields: (next: FieldItem[]) => void;
   updateTargetFieldValue: (targetId: string, fieldKey: string, newValue: string) => void;

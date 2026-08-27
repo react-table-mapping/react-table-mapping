@@ -48,12 +48,8 @@ describe('contract: appending a source row', () => {
   it('generates a prefixed id when none is supplied', () => {
     const harness = renderConsumer();
 
-    act(() =>
-      harness.ref.current!.appendSource({ key: 'a', name: { type: 'string', columnKey: 'name', value: 'A' } } as never),
-    );
-    act(() =>
-      harness.ref.current!.appendSource({ key: 'b', name: { type: 'string', columnKey: 'name', value: 'B' } } as never),
-    );
+    act(() => harness.ref.current!.appendSource({ key: 'a', name: { type: 'string', columnKey: 'name', value: 'A' } }));
+    act(() => harness.ref.current!.appendSource({ key: 'b', name: { type: 'string', columnKey: 'name', value: 'B' } }));
 
     const generated = harness
       .state()
@@ -96,12 +92,8 @@ describe('contract: appending a target row', () => {
   it('generates a prefixed id when none is supplied', () => {
     const harness = renderConsumer();
 
-    act(() =>
-      harness.ref.current!.appendTarget({ key: 'a', name: { type: 'input', columnKey: 'name', value: 'A' } } as never),
-    );
-    act(() =>
-      harness.ref.current!.appendTarget({ key: 'b', name: { type: 'input', columnKey: 'name', value: 'B' } } as never),
-    );
+    act(() => harness.ref.current!.appendTarget({ key: 'a', name: { type: 'input', columnKey: 'name', value: 'A' } }));
+    act(() => harness.ref.current!.appendTarget({ key: 'b', name: { type: 'input', columnKey: 'name', value: 'B' } }));
 
     const generated = harness
       .state()
@@ -187,7 +179,7 @@ describe('contract: replacing the whole row list', () => {
     const next = sourceFixture(1);
     const harness = renderConsumer({ sources: previous });
 
-    act(() => harness.ref.current!.updateSourceFields(next as never));
+    act(() => harness.ref.current!.updateSourceFields(next));
 
     expect(harness.lastAction()).toEqual({
       type: 'UPDATE_SOURCE_FIELDS',
@@ -201,7 +193,7 @@ describe('contract: replacing the whole row list', () => {
     const next = targetFixture(1);
     const harness = renderConsumer({ targets: previous });
 
-    act(() => harness.ref.current!.updateTargetFields(next as never));
+    act(() => harness.ref.current!.updateTargetFields(next));
 
     expect(harness.lastAction()).toEqual({
       type: 'UPDATE_TARGET_FIELDS',
@@ -214,7 +206,7 @@ describe('contract: replacing the whole row list', () => {
     // Documented asymmetry against removeSource/removeTarget, which do clean up.
     const harness = renderConsumer({ mappings: [mappingOf('source-3', 'target-1')] });
 
-    act(() => harness.ref.current!.updateSourceFields(sourceFixture(1) as never));
+    act(() => harness.ref.current!.updateSourceFields(sourceFixture(1)));
 
     expect(harness.state().mappings).toEqual([mappingOf('source-3', 'target-1')]);
   });
