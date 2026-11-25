@@ -1,4 +1,13 @@
+/**
+ * The component's outermost box.
+ *
+ * `box-sizing` is stated rather than left to the page. Without it `width: 100%` measures the
+ * content alone and the 20px of padding is added on top, so the component is 40px wider than
+ * whatever contains it — a horizontal scrollbar on any consumer whose page has no reset, and
+ * one that gets blamed on the layout around it rather than on this.
+ */
 .react-table-mapping {
+  box-sizing: border-box;
   width: 100%;
   height: fit-content;
   padding: 20px;
@@ -485,19 +494,21 @@
   }
 }
 
+/* Surfaces come from the mapping tokens, which both themes define — so in the dark theme the
+   button turns dark with its icon instead of staying white under a light one. */
 .mapping-button--outline {
-  background-color: var(--button-outline-bg, var(--color-bg-default, white));
+  background-color: var(--button-outline-bg, var(--color-bg-mapping-primary));
   border: 1px solid var(--color-border-default, #d1d5db);
   color: var(--color-text-default, #374151);
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 
   &:hover:not(:disabled) {
-    background-color: var(--button-outline-hover, var(--color-bg-hover, #f9fafb));
+    background-color: var(--button-outline-hover, var(--color-bg-mapping-primary-hover));
     color: var(--color-text-default, #374151);
   }
 
   &:disabled:hover {
-    background-color: var(--button-outline-bg, var(--color-bg-default, white));
+    background-color: var(--button-outline-bg, var(--color-bg-mapping-primary));
   }
 }
 
@@ -600,7 +611,7 @@
   padding: 12px;
   font-weight: 500;
   text-align: center;
-  flex-grow: 1;
+  flex: 1 1 0;
   color: var(--color-text-default);
 }
 
@@ -614,6 +625,9 @@
 
 .source-table-row {
   display: grid;
+  /* Fill the row, or each row sizes its 1fr columns to its own content and they stop lining up. */
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   position: relative;
   height: 61px;
@@ -623,16 +637,33 @@
   background-color: color-mix(in oklab, var(--color-bg-mapping-primary-hover) 20%, transparent);
 }
 
+/**
+ * The connectors are buttons so that they are reachable and announced as controls. Nothing
+ * about the native look is wanted, and the rules that follow set everything that is — so the
+ * UA defaults are cleared here first.
+ *
+ * `box-sizing` is stated rather than left to the cascade: browsers give a button border-box
+ * and a div nothing, so without this the dot would be 10px wide in a page that resets and 14px
+ * in one that does not.
+ */
+.connector {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
 .source-connector {
   position: absolute;
-  right: -6px;
+  right: -9px;
   top: 50%;
   transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
+  width: 15px;
+  height: 15px;
   border-radius: 100%;
   background-color: var(--color-icon-primary);
-  border: 2px solid var(--color-bg-mapping-primary);
+  border: 3px solid var(--color-bg-mapping-primary);
   z-index: 9999;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
@@ -674,12 +705,15 @@
   padding: 12px;
   font-weight: 500;
   text-align: center;
-  flex-grow: 1;
+  flex: 1 1 0;
   color: var(--color-text-default);
 }
 
 .target-table-row {
   display: grid;
+  /* Fill the row, or each row sizes its 1fr columns to its own content and they stop lining up. */
+  flex: 1 1 0;
+  min-width: 0;
   align-items: center;
   position: relative;
 }
@@ -699,14 +733,14 @@
 
 .target-connector {
   position: absolute;
-  left: -6px;
+  left: -9px;
   top: 50%;
   transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
+  width: 15px;
+  height: 15px;
   border-radius: 100%;
   background-color: var(--color-icon-primary);
-  border: 2px solid var(--color-bg-mapping-primary);
+  border: 3px solid var(--color-bg-mapping-primary);
   z-index: 9999;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
@@ -845,12 +879,50 @@
   filter: drop-shadow(0 0 2px rgba(33, 150, 243, 0.3));
 }
 
+/**
+ * The UA focus ring on a line is a rectangle around the group's bounding box — for a curve
+ * running the width of the canvas that is a box around the whole canvas, nowhere near the line
+ * it belongs to.
+ *
+ * Replaced rather than dropped. A focused line already takes the treatment a hovered one gets
+ * (`data-active` covers both), and the glow below follows the curve itself, so there is still
+ * something to see when the focus arrived from the keyboard.
+ */
+.mapping-line-group:focus,
+.mapping-line-group:focus-visible {
+  outline: none;
+}
+
+.mapping-line-group:focus-visible path.line-base {
+  filter: drop-shadow(0 0 3px var(--color-icon-info));
+}
+
+/* The band behind an addressed line: the area a click removes. */
+.mapping-line-group path.line-remove-band {
+  stroke: var(--color-border-danger);
+  stroke-opacity: 0.18;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
 .mapping-line-group.hovered {
   z-index: 1000;
 }
 
-/* Delete Button on Line */
+/**
+ * Delete Button on Line
+ *
+ * The UA gives a button its own padding — 6px each side in most browsers — which inside a box
+ * this small leaves 2px for the icon and squashes the cross to a sliver. Cleared here for the
+ * same reason it is cleared on the connectors: the rules below set everything this element is
+ * meant to look like.
+ */
 .mapping-delete-button {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
   width: 16px;
   height: 16px;
   border: 1px solid var(--color-border-danger);

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 import TableMapping from '@/components/TableMapping';
+import HeadlessMapper, { HEADLESS_BOARD_ID } from '@/examples/HeadlessMapper';
 import type {
   FieldItemInput,
   LineType,
@@ -15,6 +16,63 @@ const btnStyle: React.CSSProperties = {
   border: '1px solid #ccc',
   cursor: 'pointer',
 };
+
+const STYLED_BOARD_ID = 'styled-board';
+
+/**
+ * Out of the way until it has focus, and in front of everything once it does.
+ *
+ * A skip link that is always visible is a design decision most pages do not want; one that is
+ * `display: none` is not focusable and so never appears at all. Moving it off-screen and back
+ * is the arrangement that satisfies both.
+ */
+const skipLinkStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: 8,
+  top: -60,
+  zIndex: 100,
+  padding: '10px 16px',
+  background: '#151826',
+  color: '#fff',
+  borderRadius: 6,
+  textDecoration: 'none',
+  font: '500 14px system-ui',
+  transition: 'top 120ms ease-out',
+};
+
+/**
+ * The half of a skip link a component cannot provide.
+ *
+ * It has to sit before everything it skips past, which is the page's business rather than the
+ * board's. What the board provides is somewhere to land — a landmark that takes focus, named
+ * by `aria-label` and addressed by `id`.
+ *
+ * Measured on this page: eight tab presses to reach the first connector, or one.
+ */
+function SkipLinks() {
+  return (
+    <nav aria-label="Skip links" style={{ position: 'relative', height: 0 }}>
+      {[
+        [STYLED_BOARD_ID, 'Skip to the styled board'],
+        [HEADLESS_BOARD_ID, 'Skip to the headless board'],
+      ].map(([id, label], index) => (
+        <a
+          key={id}
+          href={`#${id}`}
+          style={skipLinkStyle}
+          onFocus={(event) => {
+            event.currentTarget.style.top = `${8 + index * 48}px`;
+          }}
+          onBlur={(event) => {
+            event.currentTarget.style.top = '-60px';
+          }}
+        >
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
 
 const sourceColumns = [{ title: 'Name', key: 'name' }];
 
@@ -168,6 +226,8 @@ function App() {
 
   return (
     <div>
+      <SkipLinks />
+
       <div
         style={{
           padding: '20px 20px 0',
@@ -224,6 +284,7 @@ function App() {
 
       <div style={{ height: '400px', width: '100%', margin: '0 auto' }}>
         <TableMapping
+          id={STYLED_BOARD_ID}
           ref={tableMethodRef}
           sources={sources}
           targets={targets}
@@ -235,6 +296,17 @@ function App() {
           onMappingChange={handleMappingChange}
         />
       </div>
+
+      {/* The same board a second time, built on `/headless` instead. Rendered together on
+          purpose: two instances on one page is the case that used to make both share one
+          arrowhead, and having it on the dev page means that class of bug shows up while
+          working rather than in a consumer's app. */}
+      <section style={{ borderTop: '1px solid #e4e6fa', marginTop: 32 }}>
+        <h2 style={{ font: '600 14px system-ui', color: '#676a7b', padding: '20px 24px 0', margin: 0 }}>
+          Built on /headless — same behaviour, none of the styling
+        </h2>
+        <HeadlessMapper />
+      </section>
     </div>
   );
 }

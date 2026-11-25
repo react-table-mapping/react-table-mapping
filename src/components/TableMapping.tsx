@@ -1,23 +1,53 @@
-import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import MappingLines from '@/components/MappingLines';
 import SourceTable from '@/components/SourceTable';
 import TargetTable from '@/components/TargetTable';
-import useTableMapping from '@/hooks/useTableMapping';
+import type { Point } from '@/core/types';
+import { MappingCanvas } from '@/headless';
+import { useMappingBoard } from '@/headless/useMappingBoard';
 import TableMappingStoreContext from '@/store/TableMappingStoreContext';
-import { type TableMappingProps } from '@/types/table-mapping';
-import { SvgLineExtractor } from '@/utils';
+import { type FieldItem, type LineType, type Mapping, type TableMappingProps } from '@/types/table-mapping';
+
+/**
+ * The dashed line shown while a connection is being dragged.
+ *
+ * Deliberately not createLinePath: a preview ends at the pointer rather than at a connector,
+ * so it takes no marker inset, and its curve is shaped to follow the cursor rather than to
+ * settle between two fixed anchors.
+ */
+function previewPath(lineType: LineType, from: Point, to: Point): string {
+  if (lineType === 'straight') return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+
+  if (lineType === 'step') {
+    const midX = from.x + (to.x - from.x) / 2;
+
+    return `M ${from.x} ${from.y} L ${midX} ${from.y} L ${midX} ${to.y} L ${to.x} ${to.y}`;
+  }
+
+  return `M ${from.x} ${from.y} C ${from.x} ${from.y}, ${to.x - 100} ${to.y}, ${to.x} ${to.y}`;
+}
+
+/** What {@link useMappingBoard} hands a `describeMapping` alongside the mapping itself. */
+type DescribeContext = { sources: FieldItem[]; targets: FieldItem[] };
+
+/**
+ * One frozen empty array for every omitted list — see the note in `useMappingBoard`. `= []`
+ * here would hand the board a new array on every render, which is how it is told the caller
+ * changed something.
+ */
+const EMPTY: never[] = [];
 
 function TableMapping({
   ref,
-  sources = [],
-  targets = [],
-  mappings = [],
-  sourceColumns = [],
-  targetColumns = [],
+  sources = EMPTY,
+  targets = EMPTY,
+  mappings = EMPTY,
+  sourceColumns = EMPTY,
+  targetColumns = EMPTY,
   lineType = 'straight',
   lineColor = '#009bff',
-  lineWidth = 1.5,
+  lineWidth = 1.7,
   hoverLineColor = '#e3f3ff',
   disabled = false,
   noDataComponent,
@@ -29,206 +59,122 @@ function TableMapping({
   onBeforeMappingLineRemove,
   onAfterMappingChange,
   onMappingChange,
+  id,
+  'aria-label': ariaLabel,
 }: TableMappingProps) {
-  const tableMappingHook = useTableMapping({
+  // What a row is called when it is read out. The first column is the one a row is named by
+  // everywhere else in this component, so it is the one used here.
+  const describeField = useCallback(
+    (field: FieldItem) => {
+      const first = sourceColumns[0] ? field[sourceColumns[0].key] : undefined;
+
+      if (typeof first === 'string') return first;
+      if (first && 'value' in first && typeof first.value === 'string') return first.value;
+
+      return field.id;
+    },
+    [sourceColumns],
+  );
+
+  const describeMapping = useCallback(
+    (mapping: Mapping, { sources: currentSources, targets: currentTargets }: DescribeContext) => {
+      const nameOf = (fields: FieldItem[], id: string) => {
+        const field = fields.find((candidate) => candidate.id === id);
+
+        return field ? describeField(field) : id;
+      };
+
+      return `${nameOf(currentSources, mapping.source)} to ${nameOf(currentTargets, mapping.target)}, press to remove`;
+    },
+    [describeField],
+  );
+
+  // Built on the same public API a consumer would use. Nothing below reaches past it, which is
+  // what keeps `/headless` honest: a gap in it would have to be worked around right here.
+  const board = useMappingBoard({
     sources,
     targets,
     mappings,
-    onStateChange: onMappingChange || (() => {}),
+    lineType,
+    disabled,
+    describeMapping,
+    describeField,
+    onMappingChange,
+    onBeforeDisconnect: onBeforeMappingLineRemove,
+    onAfterDisconnect: onAfterMappingLineRemove,
   });
 
   const {
-    sourceFields,
-    targetFields,
+    sources: sourceFields,
+    targets: targetFields,
     mappings: currentMappings,
-    redrawCount,
-    redraw,
-    addMapping,
-    removeMapping,
-    _store,
-  } = tableMappingHook;
+    lines,
+    markers,
+    remeasure,
+    dragLine,
+    activeMappingId,
+    clearHoveredMapping,
+    getRootProps,
+    getCanvasProps,
+    getConnectorProps,
+    getMappingLineProps,
+    getRemoveMappingProps,
+    announcement,
+    getLiveRegionProps,
+  } = board;
 
-  useImperativeHandle(ref, () => tableMappingHook);
+  const { redrawCount, _store } = board.actions;
 
-  const svgRef = useRef<SVGSVGElement>(null);
+  useImperativeHandle(ref, () => board.actions);
+
   const sourceTableRef = useRef<HTMLDivElement>(null);
   const targetTableRef = useRef<HTMLDivElement>(null);
-  const mappingContainerRef = useRef<HTMLDivElement>(null);
-
-  /**
-   * hovering mapping id
-   */
-  const [hoveredMapping, setHoveredMapping] = useState<string | null>(null);
+  // Kept because the height sync below observes it. The board fills it through getRootProps.
+  const mappingContainerRef = useRef<HTMLElement>(null);
 
   /**
    * personal instance of container Height
    */
   const [containerHeight, setContainerHeight] = useState<number>(0);
 
-  /**
-   * dragging state
-   */
-  const [dragging, setDragging] = useState<{
-    active: boolean;
-    sourceId: string;
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-  }>({
-    active: false,
-    sourceId: '',
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0,
+  // Named so the board is a landmark: without a name a region is not one, and a screen
+  // reader has to walk everything before the component to reach it.
+  const rootProps = getRootProps({ ref: mappingContainerRef, label: ariaLabel ?? 'Field mapping' });
+
+  // MappingLines asks per line; the board has already resolved the label against the rows.
+  const describeLine = useCallback(
+    (mapping: Mapping) => board.mappingDescriptions.find((entry) => entry.id === mapping.id)?.label ?? mapping.id,
+    [board.mappingDescriptions],
+  );
+  const canvasProps = getCanvasProps({
+    label: `${currentMappings.length} mapping${currentMappings.length === 1 ? '' : 's'}`,
   });
 
-  const handleResize = () => {
-    redraw();
-  };
-
   /**
-   * start dragging from source connector
-   */
-  const handleDragStart = (e: React.MouseEvent, sourceId: string) => {
-    const containerRect = mappingContainerRef.current?.getBoundingClientRect();
-
-    if (!containerRect) return;
-
-    // calculate connector position
-    const sourceEl = mappingContainerRef.current?.querySelector(`#connector-source-${sourceId}`);
-
-    if (!sourceEl) return;
-
-    const rect = sourceEl.getBoundingClientRect();
-
-    // calculate relative position based on container
-    const startX = rect.right - containerRect.left;
-    const startY = rect.top + rect.height / 2 - containerRect.top;
-
-    setDragging({
-      active: true,
-      sourceId,
-      startX,
-      startY,
-      currentX: startX,
-      currentY: startY,
-    });
-
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  /**
-   * dragging
-   */
-  const handleDrag = (e: React.MouseEvent) => {
-    if (!dragging.active) return;
-
-    const svgRect = svgRef.current?.getBoundingClientRect();
-
-    if (!svgRect) return;
-
-    const currentX = e.clientX - svgRect.left;
-    const currentY = e.clientY - svgRect.top;
-
-    setDragging({
-      ...dragging,
-      currentX,
-      currentY,
-    });
-
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  /**
-   * end dragging
-   */
-  const handleDragEnd = (e: React.MouseEvent) => {
-    if (!dragging.active) return;
-
-    const containerRect = mappingContainerRef.current?.getBoundingClientRect();
-
-    if (!containerRect) return;
-
-    const svgRect = svgRef.current?.getBoundingClientRect();
-
-    if (!svgRect) {
-      setDragging({ ...dragging, active: false });
-      return;
-    }
-
-    const currentX = e.clientX - svgRect.left;
-    const currentY = e.clientY - svgRect.top;
-
-    for (const targetField of targetFields) {
-      const targetEl = mappingContainerRef.current?.querySelector(`#connector-target-${targetField.id}`);
-
-      if (!targetEl) continue;
-
-      const rect = targetEl.getBoundingClientRect();
-      const targetX = rect.left - svgRect.left;
-      const targetY = rect.top + rect.height / 2 - svgRect.top;
-
-      // check if mouse is on connector (15px radius)
-      const distance = Math.sqrt(Math.pow(currentX - targetX, 2) + Math.pow(currentY - targetY, 2));
-
-      if (distance <= 15) {
-        const existingMapping = currentMappings.find(
-          (m) => m.source === dragging.sourceId && m.target === targetField.id,
-        );
-
-        if (!existingMapping) {
-          addMapping(dragging.sourceId, targetField.id);
-        }
-
-        break;
-      }
-    }
-
-    setDragging({ ...dragging, active: false });
-
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  /**
-   * create path based on line type
+   * Looks up the measured line for a mapping.
+   *
+   * The measuring itself moved into useGeometry, which runs in a layout effect. Doing it here,
+   * during render, read the layout as it stood before the current change was committed — which
+   * is why removing a row could leave the remaining lines pointing at where its neighbours used
+   * to be.
    */
   const createPath = useCallback(
     (sourceId: string, targetId: string) => {
-      const containerRect = mappingContainerRef.current?.getBoundingClientRect();
+      const line = lines.find((candidate) => candidate.source === sourceId && candidate.target === targetId);
 
-      if (!containerRect) return null;
-
-      const sourceEl = mappingContainerRef.current?.querySelector(`#connector-source-${sourceId}`);
-      const targetEl = mappingContainerRef.current?.querySelector(`#connector-target-${targetId}`);
-
-      if (!sourceEl || !targetEl || !svgRef.current) return null;
-
-      const sourceRect = sourceEl.getBoundingClientRect();
-      const targetRect = targetEl.getBoundingClientRect();
-
-      const startX = sourceRect.right - containerRect.left;
-      const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
-      const endX = targetRect.left - containerRect.left;
-      const endY = targetRect.top + targetRect.height / 2 - containerRect.top;
-
-      const path = SvgLineExtractor({ type: lineType, startX, startY, endX, endY });
+      if (!line) return null;
 
       return {
-        path,
-        startX,
-        startY,
-        endX,
-        endY,
-        midX: startX + (endX - startX) / 2,
-        midY: startY + (endY - startY) / 2,
+        path: line.path,
+        startX: line.from.x,
+        startY: line.from.y,
+        endX: line.to.x,
+        endY: line.to.y,
+        midX: line.mid.x,
+        midY: line.mid.y,
       };
     },
-    [lineType],
+    [lines],
   );
 
   useEffect(() => {
@@ -238,87 +184,70 @@ function TableMapping({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMappings]);
 
-  //mutation observer effect
+  // The SVG canvas has to cover whichever table is taller. This used to watch for childList
+  // mutations, which only fires when rows are added or removed — a row that merely grew, or a
+  // font that finished loading, left the canvas short. Observing size reports every cause.
   useEffect(() => {
-    if (sourceTableRef.current && targetTableRef.current) {
-      const handleSvgHeightResize = (mutations: MutationRecord[]) => {
-        mutations.forEach((mutation) => {
-          if (mutation.type === 'childList') {
-            const sourceTable = sourceTableRef.current;
-            const targetTable = targetTableRef.current;
+    const sourceTable = sourceTableRef.current;
+    const targetTable = targetTableRef.current;
 
-            if (!sourceTable || !targetTable) return;
+    if (!sourceTable || !targetTable) return;
 
-            const containerHeight = Math.max(sourceTable.clientHeight, targetTable.clientHeight);
+    const syncHeight = () => setContainerHeight(Math.max(sourceTable.clientHeight, targetTable.clientHeight));
 
-            setContainerHeight(containerHeight);
-          }
-        });
-      };
+    const observer = new ResizeObserver(syncHeight);
 
-      const tableHeightMutationObserver = new MutationObserver(handleSvgHeightResize);
+    observer.observe(sourceTable);
+    observer.observe(targetTable);
+    syncHeight();
 
-      tableHeightMutationObserver.observe(sourceTableRef.current, {
-        childList: true,
-        subtree: true,
-      });
-
-      tableHeightMutationObserver.observe(targetTableRef.current, {
-        childList: true,
-        subtree: true,
-      });
-
-      return () => {
-        tableHeightMutationObserver.disconnect();
-      };
-    }
+    return () => observer.disconnect();
   }, []);
 
-  //resize effect
+  // The only route from redraw() into a fresh measurement. Nothing inside the component calls
+  // redraw() any more: a viewport change reaches the lines through the container's own resize
+  // observer, so the counter now advances for exactly one reason — the consumer asked it to.
   useEffect(() => {
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (redrawCount > 0) remeasure();
+  }, [redrawCount, remeasure]);
 
   return (
     <TableMappingStoreContext.Provider value={_store}>
       <div className="react-table-mapping">
         <div
-          ref={mappingContainerRef}
+          {...rootProps}
+          id={id}
           className="mapping-container"
           style={{
+            ...rootProps.style,
             minHeight: containerHeight !== 0 && containerHeight > 180 ? `${containerHeight}px` : '180px',
           }}
         >
           {/* source table */}
           <SourceTable
             sourceTableRef={sourceTableRef}
+            getConnectorProps={getConnectorProps}
             sourceColumns={sourceColumns}
             disabled={disabled}
             noDataComponent={noDataComponent}
-            handleDragStart={handleDragStart}
             onBeforeSourceFieldRemove={onBeforeSourceFieldRemove}
             onAfterSourceFieldRemove={onAfterSourceFieldRemove}
-            tableMappingHook={tableMappingHook}
+            describeRow={describeField}
+            tableMappingHook={board.actions}
           />
 
           {/* SVG mapping line */}
-          <svg
-            ref={svgRef}
+          <MappingCanvas
+            {...canvasProps}
+            markers={markers}
+            lineColor={lineColor}
+            hoverLineColor={hoverLineColor}
             className="mapping-svg"
             style={{
+              ...canvasProps.style,
               minHeight: containerHeight !== 0 && containerHeight > 180 ? `${containerHeight}px` : '180px',
             }}
-            onMouseMove={handleDrag}
-            onMouseUp={handleDragEnd}
-            onMouseLeave={(e) => {
-              handleDragEnd(e);
-              setHoveredMapping(null);
-            }}
+            onMouseLeave={clearHoveredMapping}
           >
             {/* mapping line */}
             <MappingLines
@@ -326,75 +255,47 @@ function TableMapping({
               lineColor={lineColor}
               lineWidth={lineWidth}
               hoverLineColor={hoverLineColor}
-              forceUpdate={redrawCount}
-              hoveredMapping={hoveredMapping}
-              isDragging={dragging?.active}
+              activeMappingId={activeMappingId}
+              describeMapping={describeLine}
+              isDragging={dragLine !== null}
               disabled={disabled}
-              removeMapping={removeMapping}
-              setHoveredMapping={setHoveredMapping}
-              onBeforeMappingLineRemove={onBeforeMappingLineRemove}
-              onAfterMappingLineRemove={onAfterMappingLineRemove}
+              markers={markers}
+              getMappingLineProps={getMappingLineProps}
+              getRemoveMappingProps={getRemoveMappingProps}
               mappings={currentMappings}
             />
 
             {/* dragging line */}
-            {dragging.active && (
+            {dragLine && (
               <path
-                d={
-                  lineType === 'straight'
-                    ? `M ${dragging.startX} ${dragging.startY} L ${dragging.currentX} ${dragging.currentY}`
-                    : lineType === 'step'
-                      ? `M ${dragging.startX} ${dragging.startY} L ${dragging.startX + (dragging.currentX - dragging.startX) / 2} ${dragging.startY} L ${dragging.startX + (dragging.currentX - dragging.startX) / 2} ${dragging.currentY} L ${dragging.currentX} ${dragging.currentY}`
-                      : `M ${dragging.startX} ${dragging.startY} C ${dragging.startX} ${dragging.startY}, ${dragging.currentX - 100} ${dragging.currentY}, ${dragging.currentX} ${dragging.currentY}`
-                }
+                aria-hidden
+                d={previewPath(lineType, dragLine.from, dragLine.to)}
                 stroke={lineColor}
                 strokeWidth={lineWidth}
                 strokeDasharray="5,5"
                 fill="none"
               />
             )}
-
-            {/* define arrow marker */}
-            <defs>
-              {/* normal arrow */}
-              <marker
-                id="arrowhead-normal"
-                viewBox="0 0 10 10"
-                refX="8"
-                refY="5"
-                markerWidth="4"
-                markerHeight="4"
-                orient="auto"
-              >
-                <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke={lineColor || '#3b82f6'} strokeWidth="1.5" />
-              </marker>
-
-              {/* hover arrow */}
-              <marker
-                id="arrowhead-hover"
-                viewBox="0 0 10 10"
-                refX="8"
-                refY="5"
-                markerWidth="4"
-                markerHeight="4"
-                orient="auto"
-              >
-                <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke={hoverLineColor || '#60a5fa'} strokeWidth="1.5" />
-              </marker>
-            </defs>
-          </svg>
+          </MappingCanvas>
 
           {/* target table */}
           <TargetTable
             targetTableRef={targetTableRef}
+            getConnectorProps={getConnectorProps}
             targetColumns={targetColumns}
             disabled={disabled}
             noDataComponent={noDataComponent}
             onBeforeTargetFieldRemove={onBeforeTargetFieldRemove}
             onAfterTargetFieldRemove={onAfterTargetFieldRemove}
-            tableMappingHook={tableMappingHook}
+            describeRow={describeField}
+            tableMappingHook={board.actions}
           />
         </div>
+
+        {/* Said out loud as connections are made and removed. A new sibling at the very end of
+            the root, which is the one structural addition the DOM contract allows — the
+            existing children keep their order and their positions. */}
+        <div {...getLiveRegionProps()}>{announcement}</div>
       </div>
     </TableMappingStoreContext.Provider>
   );

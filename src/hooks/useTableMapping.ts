@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
-import { createTableMappingStore } from '@/store/createTableMappingStore';
-import type { FieldItem, FieldItemInput, Mapping, TableMappingStateWithAction } from '@/types/table-mapping';
-
-import type { TableMappingStore } from '../store/createTableMappingStore';
+import { createTableMappingStore } from '@/core/store/createTableMappingStore';
+import type { TableMappingStore } from '@/core/store/createTableMappingStore';
+import { createId } from '@/core/utils/createId';
+import type {
+  FieldItem,
+  FieldItemDraft,
+  FieldItemInput,
+  Mapping,
+  TableMappingRef,
+  TableMappingStateWithAction,
+} from '@/types/table-mapping';
 
 interface UseTableMappingProps {
   sources: FieldItemInput[];
@@ -18,7 +24,14 @@ const useTableMapping = ({
   targets: targetsFromProps,
   mappings: mappingsFromProps,
   onStateChange,
-}: UseTableMappingProps) => {
+}: UseTableMappingProps): TableMappingRef => {
+  /**
+   * How many times {@link redraw} has been called. Starts at 0 and only ever increases, so it
+   * is safe to use as a React key when a subtree has to be rebuilt alongside a redraw.
+   *
+   * It counts explicit calls and nothing else — the component never redraws itself through
+   * this counter, so a viewport change or a row being added leaves it where it was.
+   */
   const [redrawCount, setRedrawCount] = useState<number>(0);
 
   const latestEmitRef = useRef(onStateChange);
@@ -59,23 +72,34 @@ const useTableMapping = ({
   const getTargetsSnapshot = useCallback(() => store.getSnapshot().targets, [store]);
   const getMappingsSnapshot = useCallback(() => store.getSnapshot().mappings, [store]);
 
-  const sourceFields = useSyncExternalStore(subscribeSourcesList, getSourcesSnapshot);
-  const targetFields = useSyncExternalStore(subscribeTargetsList, getTargetsSnapshot);
-  const mappings = useSyncExternalStore(subscribeMappings, getMappingsSnapshot);
+  const sourceFields = useSyncExternalStore(subscribeSourcesList, getSourcesSnapshot, getSourcesSnapshot);
+  const targetFields = useSyncExternalStore(subscribeTargetsList, getTargetsSnapshot, getTargetsSnapshot);
+  const mappings = useSyncExternalStore(subscribeMappings, getMappingsSnapshot, getMappingsSnapshot);
 
   // ─── Redraw ──────────────────────────────────────────────────────────────────
 
+  /**
+   * Re-measures every mapping line against the connectors as they are laid out right now.
+   *
+   * Lines are normally kept in place on their own: the container and the connectors are
+   * observed for size changes, and rows entering or leaving are noticed as they mount. Call
+   * this for a move none of that can see — an ancestor transform, a late-loading font, a
+   * stylesheet applied after mount — where the elements shift without any of them resizing.
+   *
+   * Calling it is safe at any time. It reports nothing to `onMappingChange` and leaves
+   * sources, targets and mappings untouched.
+   */
   const redraw = () => setRedrawCount((prev) => prev + 1);
 
   // ─── Mutations ───────────────────────────────────────────────────────────────
 
-  const appendSource = (source: FieldItem) => {
-    const newSource: FieldItem = { ...source, id: source.id || `source-${uuidv4()}` };
+  const appendSource = (source: FieldItemDraft) => {
+    const newSource: FieldItem = { ...source, id: source.id || `source-${createId()}` };
     store.appendSource(newSource);
   };
 
-  const appendTarget = (target: FieldItem) => {
-    const newTarget: FieldItem = { ...target, id: target.id || `target-${uuidv4()}` };
+  const appendTarget = (target: FieldItemDraft) => {
+    const newTarget: FieldItem = { ...target, id: target.id || `target-${createId()}` };
     store.appendTarget(newTarget);
   };
 

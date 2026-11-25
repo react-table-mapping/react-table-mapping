@@ -1,0 +1,58 @@
+---
+title: 상태
+---
+
+import Demo from '@site/src/components/Demo';
+import Controlled from '@site/src/demos/Controlled';
+import ControlledSource from '!!raw-loader!@site/src/demos/Controlled';
+
+# 상태
+
+`TableMapping`은 자체 store를 가지고 있습니다. `sources`, `targets`, `mappings`를 props로 넘기면, 사용자(또는 코드)가 만드는 모든 변경이 store에 즉시 반영되고 `onMappingChange`를 통해 `{ sources, targets, mappings, action }` 형태로 전달됩니다.
+
+사용 방식은 두 가지입니다.
+
+## Controlled
+
+`onMappingChange`에서 받은 새 값을 다시 props로 내려보냅니다. 아래에서 직접 해 보세요. 마지막 `action`과 결과 `mappings`가 보드 아래에 출력됩니다.
+
+<Demo component={Controlled} source={ControlledSource} />
+
+## Uncontrolled
+
+초기값만 넘기고, 나중에 `ref`의 `getSourceFields`, `getTargetFields`, `getMappings`로 상태를 읽습니다.
+
+```tsx
+const ref = useRef<TableMappingRef>(null);
+
+<TableMapping ref={ref} sources={sources} targets={targets} mappings={initialMappings} /* ... */ />;
+
+// later
+const current = ref.current?.getMappings();
+```
+
+## props가 반영되는 방식
+
+props는 **참조가 바뀔 때만** store에 복사됩니다. 컴포넌트가 마지막으로 `onMappingChange`로 전달한 스냅샷은 무시되므로, 그대로 되돌려 넘겨도 두 번째 갱신이 일어나지 않습니다.
+
+두 방식 모두 변경은 낙관적으로 적용됩니다. store에 즉시 반영되며, 부모가 전달된 값을 무시하더라도 그대로 유지됩니다.
+
+## 주의: 불안정한 참조
+
+`mappings={[]}`나 `sources={[...items]}` 같은 인라인 리터럴은 렌더링할 때마다 새 참조가 됩니다. Uncontrolled로 사용할 때 관련 없는 부모 리렌더링이 일어나면 이 리터럴이 다시 store에 밀려 들어와 사용자의 변경이 사라지고, 아직 저장되지 않은 편집도 취소됩니다.
+
+초기값은 안정적으로 유지해 주세요. 컴포넌트 밖에 정의하거나 memoize하면 됩니다.
+
+```tsx
+const initialMappings: Mapping[] = [];
+
+function Page() {
+  return <TableMapping mappings={initialMappings} /* ... */ />;
+}
+```
+
+## 다음 문서
+
+- 선 연결과 삭제: [매핑](./mappings)
+- 행 추가와 삭제: [행](./rows)
+- 모든 `ref` 멤버: [Ref API](../api/ref)

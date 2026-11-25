@@ -30,7 +30,10 @@ export default defineConfig(({ mode }) => {
         },
       }),
       dts({
-        insertTypesEntry: true,
+        // One .d.ts per entry rather than a single rolled-up one: each subpath declares its own
+        // types in the exports map, and a shared entry would give /core and /headless the types
+        // of the styled layer along with them.
+        insertTypesEntry: false,
         exclude: [
           '__test__/**/*',
           'e2e/**/*',
@@ -57,21 +60,22 @@ export default defineConfig(({ mode }) => {
     ],
     build: {
       lib: {
-        entry: resolve(__dirname, 'src/index.ts'),
-        name: 'ReactTableMapping',
+        // Three entries, one per published subpath. Multi-entry lib mode has no UMD, which
+        // costs nothing here — only es and cjs were ever built.
+        entry: {
+          index: resolve(__dirname, 'src/index.ts'),
+          headless: resolve(__dirname, 'src/headless.ts'),
+          core: resolve(__dirname, 'src/core.ts'),
+        },
         formats: ['es', 'cjs'],
-        fileName: (format) => `index.${format === 'es' ? 'mjs' : 'js'}`,
+        fileName: (format, entryName) => `${entryName}.${format === 'es' ? 'mjs' : 'js'}`,
       },
       rollupOptions: {
-        external: ['react', 'react-dom', 'uuid', '@radix-ui/react-select', '@radix-ui/react-slot'],
+        external: ['react', 'react-dom', 'react/jsx-runtime', '@radix-ui/react-select', '@radix-ui/react-slot'],
         output: {
-          globals: {
-            react: 'React',
-            'react-dom': 'ReactDOM',
-            uuid: 'uuid',
-            '@radix-ui/react-select': 'RadixSelect',
-            '@radix-ui/react-slot': 'RadixSlot',
-          },
+          // What two entries both reach for goes in a shared chunk rather than being copied
+          // into each — /headless and the styled layer share most of their internals.
+          chunkFileNames: 'chunks/[name]-[hash].js',
           assetFileNames: (assetInfo: PreRenderedAsset): string => {
             if (assetInfo.name === 'style.css') {
               return 'react-table-mapping.css';

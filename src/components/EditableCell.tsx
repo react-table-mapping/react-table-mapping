@@ -1,9 +1,9 @@
-import React, { memo, useCallback, useSyncExternalStore } from 'react';
+import React, { memo, useCallback } from 'react';
 
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useFieldValueProps } from '@/headless';
 import { useTableMappingStore } from '@/store/TableMappingStoreContext';
-import type { StoreTopic } from '@/store/createTableMappingStore';
 import type { TableMappingRef } from '@/types/table-mapping';
 
 export interface EditableCellProps {
@@ -74,37 +74,22 @@ const DynamicCell = memo(
     tableType: 'source' | 'target';
   }) => {
     const store = useTableMappingStore();
-    const topic = `field:${tableType}:${fieldId}:${params.columnKey}` as StoreTopic;
 
-    const subscribeField = useCallback((cb: () => void) => store.subscribe(topic, cb), [store, topic]);
-    const getFieldSnapshot = useCallback(
-      () => store.getFieldValue(tableType, fieldId, params.columnKey),
-      [store, tableType, fieldId, params.columnKey],
-    );
+    const { value, onChange } = useFieldValueProps({
+      store,
+      side: tableType,
+      id: fieldId,
+      columnKey: params.columnKey,
+      onChange: params.onChange,
+    });
 
-    const value = useSyncExternalStore(subscribeField, getFieldSnapshot);
-
-    const handleInputChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newValue = e.target.value;
-        store.setFieldValue(tableType, fieldId, params.columnKey, newValue);
-        params.onChange?.(newValue);
-      },
-      [store, tableType, fieldId, params],
-    );
-
-    const handleSelectChange = useCallback(
-      (newValue: string) => {
-        store.setFieldValue(tableType, fieldId, params.columnKey, newValue);
-        params.onChange?.(newValue);
-      },
-      [store, tableType, fieldId, params],
-    );
+    // Radix reports the value itself; the getter takes the event an <input> would give it.
+    const handleSelectChange = useCallback((newValue: string) => onChange({ target: { value: newValue } }), [onChange]);
 
     if (params.type === 'input') {
       return (
         <div className="custom-cell-input">
-          <Input value={value} {...params.attributes} onChange={handleInputChange} disabled={disabled} />
+          <Input value={value} {...params.attributes} onChange={onChange} disabled={disabled} />
         </div>
       );
     }

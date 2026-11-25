@@ -1,0 +1,73 @@
+---
+title: Headless
+---
+
+import Demo from '@site/src/components/Demo';
+import Headless from '@site/src/demos/Headless';
+import HeadlessSource from '!!raw-loader!@site/src/demos/Headless';
+
+# Headless
+
+`react-table-mapping/headless` gives you the behaviour of the board without its appearance: the state, the measuring of the rows, the line geometry, and the pointer and keyboard gestures. Every element on the screen is yours.
+
+## When to use it
+
+Use the headless entry when `TableMapping` is not the right shape for your page:
+
+- you already have a table, a virtualised list or a design system the rows must come from
+- you need a layout other than two tables side by side
+- you do not want the library's stylesheet on the page
+
+If the default tables are fine, stay with `TableMapping`. See [Styling](./styling) for how far its look can be changed.
+
+## One hook, a few getters
+
+```tsx
+import { MappingCanvas, useMappingBoard } from 'react-table-mapping/headless';
+
+const board = useMappingBoard({ sources, targets, mappings, onMappingChange });
+```
+
+`useMappingBoard` takes the same `sources`, `targets`, `mappings`, `lineType` and `onMappingChange` as the component, so [State](./state) applies unchanged. It returns the data to render (`sources`, `targets`, `mappings`, `lines`, `dragLine`, `markers`) and `actions`, which is the same set of methods as the [ref](../api/ref).
+
+The hook is the supported surface. The hooks it is built from are not exported, because they depend on each other in ways that are not a contract.
+
+## Prop getters
+
+Each element takes its behaviour through a getter. Spread the result onto your own element:
+
+```tsx
+<button {...board.getConnectorProps({ side: 'source', id: field.id })} />
+```
+
+The returned props include event handlers, `tabIndex`, ARIA attributes and a `ref`. Because the getter owns the `ref`, writing your own `ref` on the same element would replace the library's registration, and the lines to that row would silently stop being drawn. Pass yours through the getter instead, where it is merged:
+
+```tsx
+board.getConnectorProps({ side: 'source', id: field.id, ref: myRef });
+```
+
+`getRootProps` takes a `ref` the same way.
+
+## Building blocks
+
+Put these together in this order.
+
+1. **Root.** `getRootProps({ label })` goes on the element that contains both columns and the canvas. Every connector position is measured against it, so make it only as wide as its content and give it `position: relative`.
+2. **Connector groups.** `getConnectorGroupProps({ side, label })` goes on the list that holds one side's connectors. It sets `role="toolbar"`, which is what lets a screen reader hand the arrow keys to the page.
+3. **Connectors.** `getConnectorProps({ side, id })` goes on a `<button>`, one per row. It carries the drag handlers and the keyboard handlers. While a connection is being made, the props include `data-connecting` on the starting connector and `data-candidate` on the ones it can reach, which is what you style.
+4. **Canvas.** `<MappingCanvas {...board.getCanvasProps()} markers={board.markers}>` is the SVG that lines are drawn in.
+5. **Lines.** Render one element per entry of `board.lines`, using its `path`, inside the canvas. Spread `getMappingLineProps({ id })` on it to make the line hoverable, focusable and removable. While a drag is in progress, `board.dragLine` holds the start and end points of the preview.
+6. **Remove control.** `getRemoveMappingProps({ id, standalone: true })` goes on a button that removes one mapping. `board.mappingDescriptions` lists the label of each mapping, which suits a text list of connections.
+7. **Live region.** `board.announcement` is the text to announce after each change. Render it inside an element with `role="status"` and `aria-live="polite"` that is always present.
+
+## Keyboard and screen readers
+
+You do not write any keyboard handling. It arrives with the getters: the arrow keys move between connectors, and a connection is made by choosing a source and then a target. That is also why the group, the root and the live region matter. Without them the gestures work but a screen reader does not hear what happened.
+
+Use `describeField` and `describeMapping` to control the names that are read out, and `announcements` to replace the announcement strings.
+
+## Example
+
+Drag from a dot on the left to a dot on the right, or use the keyboard to do the same.
+
+<Demo component={Headless} source={HeadlessSource} />

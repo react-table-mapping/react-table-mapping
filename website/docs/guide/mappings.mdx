@@ -1,0 +1,60 @@
+---
+title: Mappings
+---
+
+# Mappings
+
+A mapping is a line from one source row to one target row. It has the shape `{ id, source, target }`, where `source` and `target` are row ids and `id` is `mapping-${source.id}-${target.id}`.
+
+## Creating a mapping
+
+- **Drag.** Drag from a source connector and release near a target connector. The drop is accepted within a 15 px radius of the connector.
+- **Click to connect.** Click a source connector without dragging, then click a target. Pressing a different source while a connection is waiting moves it there. Clicking the same source again cancels it.
+- **Keyboard.** Focus a source connector and press Enter, then choose a target. See [Keyboard and accessibility](./keyboard).
+- **Code.** Call `addMapping(sourceId, targetId)` on the `ref`.
+
+## Removing a mapping
+
+- Click a line. The part that a click would remove shows a red band while the pointer is over it.
+- Focus a line with the keyboard and press Enter, Space, Delete or Backspace.
+- Call `removeMapping(mappingId)` or `clearMappings()` on the `ref`.
+
+## Hooks around removal
+
+`onBeforeMappingLineRemove(mappingId)` runs before a line is removed. Return `false` to keep it. `onAfterMappingLineRemove(mappingId)` runs afterwards.
+
+```tsx
+<TableMapping
+  onBeforeMappingLineRemove={(id) => window.confirm(`Remove ${id}?`)}
+  onAfterMappingLineRemove={(id) => console.log('removed', id)}
+  /* ... */
+/>
+```
+
+`onAfterMappingChange` receives `{ sources, targets, mappings }` after the mappings have changed.
+
+## Helpers on the ref
+
+| Method                           | What it does                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------- |
+| `addMapping(sourceId, targetId)` | Adds one mapping.                                                               |
+| `removeMapping(mappingId)`       | Removes one mapping.                                                            |
+| `clearMappings()`                | Removes all of them.                                                            |
+| `updateMappings(next)`           | Replaces the whole list.                                                        |
+| `sameLineMapping()`              | Pairs rows by position, stopping at whichever table is shorter.                 |
+| `sameNameMapping(name)`          | Pairs rows whose value in the given column matches. Replaces existing mappings. |
+
+## Actions
+
+`onMappingChange` reports what happened in `action`, which is an object with a `type` and a `payload`.
+
+| `type`              | `payload`                                 |
+| ------------------- | ----------------------------------------- |
+| `ADD_MAPPING`       | `sourceId`, `targetId`, `mapping`         |
+| `REMOVE_MAPPING`    | `mappingId`, `removedMapping`             |
+| `CLEAR_MAPPINGS`    | `clearedMappings`                         |
+| `UPDATE_MAPPINGS`   | `previousMappings`, `newMappings`         |
+| `SAME_LINE_MAPPING` | `previousMappings`, `newMappings`         |
+| `SAME_NAME_MAPPING` | `name`, `previousMappings`, `newMappings` |
+
+Row actions are listed on [Rows](./rows). The full union is `NotifyAction` in [Types](../api/types).

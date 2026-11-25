@@ -1,0 +1,76 @@
+---
+title: 행
+---
+
+# 행
+
+행은 `FieldItem`입니다. `id`, `key`, 그리고 컬럼마다 하나씩의 항목으로 이루어집니다. 각 항목이 어느 컬럼에 속하는지는 `columnKey`로 정합니다.
+
+## 행 추가와 삭제
+
+`ref`를 사용합니다.
+
+| 메서드                                                 | 설명                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `appendSource(source)`, `appendTarget(target)`         | 맨 끝에 행을 추가합니다. `id`를 생략하면 자동으로 생성됩니다.              |
+| `removeSource(sourceId)`, `removeTarget(targetId)`     | 행과 그 행을 참조하던 모든 매핑을 삭제합니다.                              |
+| `updateSourceFields(next)`, `updateTargetFields(next)` | 목록 전체를 교체합니다. 매핑은 그대로 둡니다.                              |
+| `updateSourceFieldValue(sourceId, fieldKey, newValue)` | 값 하나를 즉시 바꿉니다. target은 `updateTargetFieldValue`가 같은 역할입니다. |
+
+```tsx
+ref.current?.appendTarget({
+  key: 'target-3',
+  name: { type: 'string', columnKey: 'name', value: 'status' },
+});
+```
+
+각 행에는 삭제 버튼도 있으며, 컬럼마다 탭 정지점은 하나입니다.
+
+## 삭제 전후 훅
+
+`onBeforeSourceFieldRemove(sourceId)`와 `onBeforeTargetFieldRemove(targetId)`는 행이 삭제되기 전에 실행됩니다. `false`를 반환하면 행이 유지됩니다. `onAfterSourceFieldRemove(removedSourceId)`와 `onAfterTargetFieldRemove(removedTargetId)`는 삭제 후에 실행됩니다.
+
+## 필드 타입
+
+필드는 세 가지 타입 중 하나이거나 일반 문자열입니다.
+
+```tsx
+// Static text
+{ type: 'string', columnKey: 'name', value: 'Static Text' }
+
+// Editable text
+{ type: 'input', columnKey: 'name', value: 'Initial', onChange: (value) => {} }
+
+// Dropdown
+{
+  type: 'select',
+  columnKey: 'func',
+  defaultValue: 'CONCAT',
+  options: [
+    { label: 'None', value: 'NONE' },
+    { label: 'Concatenate', value: 'CONCAT' },
+  ],
+  onChange: (value) => {},
+}
+```
+
+`input`과 `select`는 `attributes`도 받으며, 내부 요소에 그대로 전달됩니다.
+
+## 편집은 debounce됩니다
+
+`input`에 입력하거나 `select`에서 고른 값은 짧은 지연(기본 300ms) 뒤에 store에 기록됩니다. `updateSourceFieldValue`나 `updateTargetFieldValue`로 코드에서 바꾸는 값은 즉시 적용됩니다.
+
+## Action
+
+| `type`                      | `payload`                          |
+| --------------------------- | ---------------------------------- |
+| `APPEND_SOURCE`             | `source`                           |
+| `REMOVE_SOURCE`             | `sourceId`, `removedMappings`      |
+| `UPDATE_SOURCE_FIELDS`      | `previousSources`, `newSources`    |
+| `UPDATE_SOURCE_FIELD_VALUE` | `sourceId`, `fieldKey`, `newValue` |
+| `APPEND_TARGET`             | `target`                           |
+| `REMOVE_TARGET`             | `targetId`, `removedMappings`      |
+| `UPDATE_TARGET_FIELDS`      | `previousTargets`, `newTargets`    |
+| `UPDATE_TARGET_FIELD_VALUE` | `targetId`, `fieldKey`, `newValue` |
+
+매핑 관련 action은 [매핑](./mappings)에 있습니다.

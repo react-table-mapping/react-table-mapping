@@ -1,4 +1,7 @@
 public/
 
+# The Docusaurus docs site keeps its own formatting
+website/
+
 # lock file
 yarn.lock

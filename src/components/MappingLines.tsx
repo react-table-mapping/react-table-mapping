@@ -1,142 +1,140 @@
 import { X } from 'lucide-react';
 import { memo } from 'react';
 
+import type {
+  GetMappingLinePropsParams,
+  GetRemoveMappingPropsParams,
+  LineMarkers,
+  MappingLineProps,
+  RemoveMappingProps,
+} from '@/headless';
 import type { Mapping } from '@/types/table-mapping';
 
 export interface MappingLinesProps {
   lineColor: string;
   lineWidth: number;
   hoverLineColor: string;
-  forceUpdate: number;
-  hoveredMapping: string | null;
+  activeMappingId: string | null;
+  markers: LineMarkers;
+  describeMapping: (mapping: Mapping) => string;
   isDragging: boolean;
   disabled: boolean;
   createPath: (sourceId: string, targetId: string) => { path: string; midX: number; midY: number };
-  removeMapping: (mappingId: string) => void;
-  setHoveredMapping: (id: string | null) => void;
-  onBeforeMappingLineRemove?: (removeMappingId: string) => void | boolean;
-  onAfterMappingLineRemove?: (removeMappingId: string) => void;
+  getMappingLineProps: (params: GetMappingLinePropsParams) => MappingLineProps;
+  getRemoveMappingProps: (params: GetRemoveMappingPropsParams) => RemoveMappingProps;
   mappings: Mapping[];
 }
+
+/**
+ * Puts the hovered line last so it paints over the others.
+ *
+ * The order changes, the elements do not: each line keeps its own key, so React moves the node
+ * rather than building a new one. Rendering the hovered line as a separate element instead
+ * unmounted and remounted it mid-hover, which took the click that was on its way to it.
+ */
+/** How much wider than the line its hit area, and the remove band drawn over it, are while active. */
+const ACTIVE_HIT_PADDING = 10;
+
+const paintOrder = (mappings: Mapping[], activeMappingId: string | null) => {
+  if (!activeMappingId) return mappings;
+
+  const active = mappings.filter((mapping) => mapping.id === activeMappingId);
+
+  return active.length ? [...mappings.filter((mapping) => mapping.id !== activeMappingId), ...active] : mappings;
+};
 
 const MappingLines = memo(
   ({
     lineColor,
     lineWidth,
     hoverLineColor,
-    forceUpdate,
-    hoveredMapping,
+    activeMappingId,
+    markers,
+    describeMapping,
     isDragging,
     disabled,
     createPath,
-    removeMapping,
-    setHoveredMapping,
-    onBeforeMappingLineRemove,
-    onAfterMappingLineRemove,
+    getMappingLineProps,
+    getRemoveMappingProps,
     mappings,
-  }: MappingLinesProps) => {
-    const effectiveHoveredMapping = isDragging ? null : hoveredMapping;
+  }: MappingLinesProps) => (
+    <>
+      {paintOrder(mappings, activeMappingId).map((mapping) => {
+        const pathData = createPath(mapping.source, mapping.target);
 
-    const normalMappings = mappings.filter((mapping) => mapping.id !== effectiveHoveredMapping);
-    const hoveredMappingData = mappings.find((mapping) => mapping.id === effectiveHoveredMapping);
+        if (!pathData) return null;
 
-    const handleMappingLineRemove = (mappingId: string) => {
-      if (!isDragging && !disabled) {
-        const shouldRemove = onBeforeMappingLineRemove?.(mappingId);
+        const { style: hitStyle, ...lineProps } = getMappingLineProps({
+          id: mapping.id,
+          label: describeMapping(mapping),
+        });
+        const active = mapping.id === activeMappingId;
 
-        if (shouldRemove === false) return;
-
-        removeMapping(mappingId);
-
-        onAfterMappingLineRemove?.(mappingId);
-      }
-    };
-
-    return (
-      <>
-        {normalMappings.map((mapping) => {
-          const pathData = createPath(mapping.source, mapping.target);
-
-          return pathData ? (
-            <g
-              key={`${mapping.id}-${forceUpdate}`}
-              style={{ pointerEvents: disabled ? 'none' : 'auto' }}
-              className="mapping-line-group"
-              data-testid={`mapping-line-${mapping.id}`}
-              onMouseEnter={() => !isDragging && !disabled && setHoveredMapping(mapping.id)}
-              onMouseLeave={() => !isDragging && !disabled && setHoveredMapping(null)}
-            >
-              {/* actual view line */}
+        return (
+          // The click sits on the group, not on the hit area: hovering puts the remove control
+          // over the line's midpoint, so a press can start on the stroke and end on the button.
+          // The click that follows lands on their common ancestor, which is this.
+          <g
+            key={mapping.id}
+            {...lineProps}
+            style={{ pointerEvents: disabled ? 'none' : 'auto' }}
+            className={`mapping-line-group${active ? ' hovered' : ''}`}
+            data-testid={`mapping-line-${mapping.id}`}
+          >
+            {/* What a click would remove, shown under the line while it is the one addressed. Drawn
+                as wide as the hit area below, so the band is exactly where a click lands. */}
+            {active ? (
               <path
+                aria-hidden
                 d={pathData.path}
-                stroke={lineColor}
-                strokeWidth={lineWidth}
+                strokeWidth={lineWidth + ACTIVE_HIT_PADDING}
                 fill="none"
-                markerEnd={`url(#arrowhead-${effectiveHoveredMapping === mapping.id ? 'hover' : 'normal'})`}
-                className="line-base"
+                className="line-remove-band"
               />
+            ) : null}
 
-              {/* hover area */}
-              <path
-                d={pathData.path}
-                style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
-                fill="transparent"
-                strokeWidth={lineWidth + 4}
-                className={`hover-area ${isDragging && !disabled ? 'dragging' : ''}`}
-                onClick={() => handleMappingLineRemove(mapping.id)}
-              />
-            </g>
-          ) : null;
-        })}
+            {/* actual view line */}
+            <path
+              aria-hidden
+              d={pathData.path}
+              stroke={active ? hoverLineColor : lineColor}
+              strokeWidth={active ? lineWidth + 0.5 : lineWidth}
+              fill="none"
+              markerEnd={active ? markers.hovered : markers.normal}
+              className="line-base"
+            />
 
-        {hoveredMappingData &&
-          (() => {
-            const pathData = createPath(hoveredMappingData.source, hoveredMappingData.target);
+            {/* hover area */}
+            <path
+              aria-hidden
+              d={pathData.path}
+              style={{ ...hitStyle, cursor: disabled ? 'not-allowed' : 'pointer' }}
+              fill="transparent"
+              strokeWidth={active ? lineWidth + ACTIVE_HIT_PADDING : lineWidth + 4}
+              className={`hover-area ${isDragging && !disabled ? 'dragging' : ''}`}
+            />
 
-            return pathData ? (
-              <g
-                key={`${hoveredMappingData.id}-${forceUpdate}-hovered`}
-                className="mapping-line-group hovered"
-                data-testid={`mapping-line-${hoveredMappingData.id}`}
-                onMouseEnter={() => !isDragging && !disabled && setHoveredMapping(hoveredMappingData.id)}
-                onMouseLeave={() => !isDragging && !disabled && setHoveredMapping(null)}
+            {active ? (
+              <foreignObject
+                width="18"
+                height="18"
+                x={pathData.midX - 9}
+                y={pathData.midY - 9}
+                style={{ overflow: 'visible' }}
               >
-                {/* actual view line */}
-                <path
-                  d={pathData.path}
-                  stroke={hoverLineColor}
-                  strokeWidth={lineWidth + 0.5}
-                  fill="none"
-                  markerEnd="url(#arrowhead-hover)"
-                  className="line-base"
-                />
-
-                {/* hover area */}
-                <path
-                  d={pathData.path}
-                  strokeWidth={lineWidth + 4.5}
-                  className={`hover-area ${isDragging && !disabled ? 'dragging' : ''}`}
-                  onClick={() => handleMappingLineRemove(hoveredMappingData.id)}
-                />
-
-                <foreignObject
-                  width="18"
-                  height="18"
-                  x={pathData.midX - 9}
-                  y={pathData.midY - 9}
-                  style={{ overflow: 'visible' }}
-                  onClick={() => handleMappingLineRemove(hoveredMappingData.id)}
+                <button
+                  {...getRemoveMappingProps({ id: mapping.id })}
+                  className={`mapping-delete-button ${isDragging ? 'dragging' : ''}`}
                 >
-                  <div className={`mapping-delete-button ${isDragging ? 'dragging' : ''}`}>
-                    <X className="mapping-delete-icon" />
-                  </div>
-                </foreignObject>
-              </g>
-            ) : null;
-          })()}
-      </>
-    );
-  },
+                  <X className="mapping-delete-icon" />
+                </button>
+              </foreignObject>
+            ) : null}
+          </g>
+        );
+      })}
+    </>
+  ),
 );
 
 export default MappingLines;
