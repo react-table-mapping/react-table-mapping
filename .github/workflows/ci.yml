@@ -39,7 +39,8 @@ jobs:
 
   e2e-test:
     name: E2E Test
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.55 cannot install browsers on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
