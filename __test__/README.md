@@ -10,12 +10,12 @@
 
 ## 계층
 
-| 디렉터리            | 계층                         | 수명                          | 실패의 의미                                        |
-| ------------------- | ---------------------------- | ----------------------------- | -------------------------------------------------- |
-| `contract/`         | Tier 1 · 약속                | 영구 (major에서만 변경)       | 소비자 코드가 깨진다. semver 결정 지점             |
-| `invariant/`        | Tier 2 · 불변식              | 영구 (구현 무관)              | 구현이 틀렸다                                      |
-| `characterization/` | Tier 3 · 특성화              | **한시적** (파일 헤더에 명시) | 동작이 바뀌었다. 의도한 것인지 판단 필요           |
-| `core/`             | Tier 1 · 약속 (`/core` 경계) | 영구 (major에서만 변경)       | `/core` 서브패스 소비자가 깨진다. semver 결정 지점 |
+| 디렉터리            | 계층                         | 수명                          | 실패의 의미                                              |
+| ------------------- | ---------------------------- | ----------------------------- | -------------------------------------------------------- |
+| `contract/`         | Tier 1 · 약속                | 영구 (major에서만 변경)       | 소비자 코드가 깨진다. semver 결정 지점                   |
+| `invariant/`        | Tier 2 · 불변식              | 영구 (구현 무관)              | 구현이 틀렸다                                            |
+| `characterization/` | Tier 3 · 특성화              | **한시적** (파일 헤더에 명시) | 동작이 바뀌었다. 의도한 것인지 판단 필요 — **현재 없음** |
+| `core/`             | Tier 1 · 약속 (`/core` 경계) | 영구 (major에서만 변경)       | `/core` 서브패스 소비자가 깨진다. semver 결정 지점       |
 
 ### `contract/` — Tier 1
 
@@ -27,12 +27,14 @@
 creating-mappings.test.tsx    매핑 생성 — addMapping, sameLineMapping, sameNameMapping
 removing-mappings.test.tsx    매핑 삭제 — removeMapping, 라인 클릭, 거부권 프로토콜
 managing-rows.test.tsx        행 추가·삭제 + 매핑 캐스케이드
+keyboard-access.test.tsx     키보드 접근 — 열당 탭 정지점 하나, 커넥터 이름, 라이브 리전, aria-hidden 감사
 editing-values.test.tsx       셀 값 편집 — ref는 즉시, 타이핑은 디바운스
 appearance.test.tsx           lineColor lineWidth hoverLineColor noDataComponent disabled
 ref-surface.test.tsx          TableMappingRef 멤버 22개 전수
 ref-surface.type-lock.ts      TableMappingRef 시그니처 타입 동결 — 런타임 테스트 아님, tsc가 채점 (D1)
 controlled-state.test.tsx     props ↔ action 왕복, echo 감지
 uncontrolled-usage.test.tsx   콜백 없이 ref로만 쓰는 소비자, 낙관적 적용, 참조 안정성
+dom-contract.test.tsx         styled 클래스명·계층 동결 (D3) — 소비자의 유일한 스타일링 경로
 ```
 
 `ref-surface.test.tsx`는 멤버 **이름과 종류**(`typeof x === 'function'` 등)만 고정한다. 시그니처가
@@ -73,18 +75,23 @@ line-anchors.test.tsx    라인 시작점 == 소스 커넥터 우측 중앙
 
 **수명이 있는 테스트.** 리팩터링 안전망으로 만든 도구지 영구 자산이 아니다. 각 파일 헤더에 만료 시점과 그때 할 일을 반드시 적는다. 안 적으면 남는다.
 
-```
-dom-contract.test.tsx        만료: D3 폐기 시 (major) → 삭제 = D3 폐기 선언
-```
+**만료가 날짜나 단계가 아니라 조건이면 이 계층이 아니다.** `dom-contract.test.tsx`가 한동안 여기
+있었는데, 그 "만료"는 "D3를 폐기하면"이었다 — 그건 수명이 아니라 **major 결정**이고, 곧
+`contract/`의 정의 그 자체다. 지금은 `contract/`에 있다. 헷갈리면 이렇게 묻는다: _언제 지울지
+지금 말할 수 있는가?_ 말할 수 없으면 Tier 3가 아니다.
 
-**커밋하지 않는 파일이 하나 더 있다.** `geometry-baseline.test.tsx`와 그 스냅샷은 `.gitignore`에
-올라가 있어 각자의 워킹 트리에만 존재한다. 3단계 완료 시 삭제되도록 만들어진 순수 발판이라,
-이력에 넣었다가 빼면 PR에 남는 것은 "추가했다가 지웠다"는 잡음뿐이기 때문이다.
+**이 디렉터리는 현재 비어 있고, 그게 정상이다.** 지오메트리 재배선 동안 `geometry-baseline.test.tsx`가
+여기 있었다 — `.gitignore`에 올려 각자의 워킹 트리에만 두었는데, 이력에 넣었다가 빼면 PR에 남는
+것이 "추가했다가 지웠다"는 잡음뿐이기 때문이다. 역할은 측정 경로를 갈아엎는 동안 출력이 바뀌지
+않았음을 증명하는 것이었고, `createLinePath`의 시그니처를 두 번 바꾸고도 `M 0 0 L 93 0`이 그대로임을
+이 스냅샷이 보증했다.
 
-역할은 1~3단계가 아무것도 바꾸지 않았음을 증명하는 것이다 — `createLinePath`의 시그니처를 두 번
-바꾸고도 출력이 `M 0 0 L 93 0`으로 동일함을 이 스냅샷이 보증했다. 그 구간을 작업한다면 로컬에
-두고 돌릴 것. 3단계가 끝나면 `invariant/line-anchors.test.tsx`가 같은 보장을 구현 무관하게
-서술하므로 역할이 끝난다.
+**만료 처리도 실측으로 했다.** 마커 인셋을 7에서 9로 훼손했더니 `invariant/line-anchors.test.tsx`와
+`core/createLinePath.test.ts`가 각각 실패했다 — 관계는 불변식이, 정확한 숫자는 `/core` 계약이
+지킨다. 스냅샷이 더 얹던 것은 **정당한 인셋 조정마다 18개가 거짓 양성으로 걸리는 정밀도**뿐이었다.
+
+발판을 다시 만든다면 같은 규칙으로 한다: gitignore에 올리고, 헤더에 만료를 적고, 만료 시점에
+**남은 층이 실제로 무는지 프로브로 확인한 뒤** 지운다.
 
 ### `core/`
 
@@ -93,10 +100,18 @@ dom-contract.test.tsx        만료: D3 폐기 시 (major) → 삭제 = D3 폐�
 `/core` 서브패스로 그대로 배포되므로(스펙 4절), 여기 실패하면 헤드리스 소비자의 코드가 깨진다.
 
 `vitest.workspace.ts`가 `core` 프로젝트로 따로 분리해 돌린다 — **`environment: 'node'`, `setupFiles`
-없음.** `__test__/setup.ts`가 모듈 스코프에서 `PointerEvent`를 확장하는 클래스를 선언하는데,
-이는 DOM 밖에서 임포트되는 순간 던진다. 그래서 `core` 프로젝트는 그 파일을 아예 로드하지
-않는다 — 이것이 곧 `/core` 경계의 실행 가능한 증거다: `window`, `document`, React를 건드리는
-코드는 여기서 실패해야 컨슈머의 빌드에서가 아니라 이 자리에서 잡힌다.
+없음.** `__test__/setup.ts`는 모듈 스코프에서 `window`에 `matchMedia`를 심으므로 DOM 밖에서
+임포트되는 순간 던진다. 그래서 `core` 프로젝트는 그 파일을 아예 로드하지 않는다 — 이것이 곧
+`/core` 경계의 실행 가능한 증거다: `window`, `document`, React를 건드리는 코드는 여기서 실패해야
+컨슈머의 빌드에서가 아니라 이 자리에서 잡힌다.
+
+**환경 때문에 여기 들어온 파일이 하나 있다.** `server-rendering.test.ts`는 계층으로는 Tier 1
+(styled 진입점의 약속)이지만, DOM이 전혀 없는 실행이 있어야 증명되므로 이 프로젝트에 둔다.
+jsdom에서 돌리면 모듈 스코프의 `window` 접근이 통과해버려 실제 SSR에서만 터진다. "디렉터리가 곧
+분류"와 어긋나는 첫 사례이고, SSR 케이스가 셋으로 늘어날 때 배치를 다시 정한다.
+
+> `include`가 `__test__/core/**/*.test.ts`라 **`.tsx`는 어느 프로젝트에서도 수집되지 않는다.**
+> JSX가 필요하면 `createElement`로 쓴다.
 
 `core/`가 다루는 모듈은 이미 공개 서브패스이므로 `contract/`와 같은 규칙으로 **영구**이고,
 시그니처를 바꾸는 것은 major 결정이다.
@@ -128,7 +143,11 @@ jsdom 전용이라 여기서는 쓸 수 없다.
 
 `setup.ts`는 **환경 shim만** 둔다. 전역 monkey-patch 금지 — 모든 엘리먼트가 같은 rect를 반환하면 지오메트리 회귀를 원리적으로 감지할 수 없다. 좌표가 필요하면 `helpers/rects.ts`로 테스트별로 심는다.
 
-`ResizeObserver` fake와 `PointerEvent` 폴리필은 **두지 않는다.** 둘 다 아직 시작하지 않은 작업을 위해 미리 전역 설치돼 있었는데, `src/` 어디도 두 API를 쓰지 않아 스위트 전체가 소비자 없는 픽스처 위에서 돌고 있었다. 프로브로 확인한 결과 둘을 걷어내도 빨개지는 것은 그 자체를 검사하던 `environment.test.tsx` 2건뿐이었다. 필요해지는 단계에서, 필요한 파일에 지역 설치할 것 — 전역으로 미리 심으면 그 단계가 **콜백이 절대 돌지 않는 fake를 조용히 받는다.**
+**shim은 `src/`에 소비자가 생긴 뒤에 심는다.** 한때 `ResizeObserver` fake와 `PointerEvent` 폴리필이 아직 시작하지 않은 작업을 위해 미리 전역 설치돼 있었는데, `src/` 어디도 두 API를 쓰지 않아 스위트 전체가 소비자 없는 픽스처 위에서 돌고 있었다. 프로브로 확인한 결과 둘을 걷어내도 빨개지는 것은 그 자체를 검사하던 `environment.test.tsx` 2건뿐이었다. 미리 심으면 정작 그 API를 쓰게 된 단계가 **콜백이 절대 돌지 않는 fake를 조용히 물려받는다.**
+
+`ResizeObserver` fake는 `useGeometry`가 실제로 쓰기 시작하면서 돌아왔다(`helpers/observers.ts`). `PointerEvent` 폴리필은 아직 없다 — 포인터 드래그를 배선하는 시점에, 그 파일에 지역 설치할 것.
+
+**하네스에 보장을 하나 올릴 때마다 `environment.test.tsx`에 단언을 하나 올린다.** 문서는 낡아도 조용하지만 스모크는 낡으면 빨간불이 된다. 이 fake의 경우 지켜야 할 것은 존재가 아니라 **무발화**다 — 실측으로, shim을 통째로 지우면 122건이 실패하지만(신호 충분) `observe()`에서 발화하도록 바꾸면 19개 파일이 전부 통과한다(신호 0).
 
 ## 실패했을 때
 

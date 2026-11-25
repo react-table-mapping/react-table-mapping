@@ -1,0 +1,60 @@
+---
+title: 매핑
+---
+
+# 매핑
+
+매핑은 source 행 하나와 target 행 하나를 잇는 선입니다. `{ id, source, target }` 형태이며, `source`와 `target`은 행의 id이고 `id`는 `mapping-${source.id}-${target.id}`입니다.
+
+## 매핑 만들기
+
+- **드래그.** source 커넥터에서 드래그해 target 커넥터 근처에서 놓습니다. 커넥터 반경 15px 이내에서 놓으면 연결됩니다.
+- **클릭으로 연결.** 드래그하지 않고 source 커넥터를 클릭한 다음 target을 클릭합니다. 연결을 기다리는 동안 다른 source를 누르면 그쪽으로 옮겨지고, 같은 source를 다시 클릭하면 취소됩니다.
+- **키보드.** source 커넥터에 포커스를 두고 Enter를 누른 뒤 target을 고릅니다. [키보드와 접근성](./keyboard)을 참고해 주세요.
+- **코드.** `ref`의 `addMapping(sourceId, targetId)`를 호출합니다.
+
+## 매핑 삭제하기
+
+- 선을 클릭합니다. 포인터를 올리면 클릭으로 삭제될 영역에 빨간 띠가 표시됩니다.
+- 키보드로 선에 포커스를 두고 Enter, Space, Delete, Backspace 중 하나를 누릅니다.
+- `ref`의 `removeMapping(mappingId)` 또는 `clearMappings()`를 호출합니다.
+
+## 삭제 전후 훅
+
+`onBeforeMappingLineRemove(mappingId)`는 선이 삭제되기 전에 실행됩니다. `false`를 반환하면 선이 유지됩니다. `onAfterMappingLineRemove(mappingId)`는 삭제 후에 실행됩니다.
+
+```tsx
+<TableMapping
+  onBeforeMappingLineRemove={(id) => window.confirm(`Remove ${id}?`)}
+  onAfterMappingLineRemove={(id) => console.log('removed', id)}
+  /* ... */
+/>
+```
+
+`onAfterMappingChange`는 매핑이 바뀐 뒤 `{ sources, targets, mappings }`를 받습니다.
+
+## ref 헬퍼
+
+| 메서드                           | 설명                                                              |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `addMapping(sourceId, targetId)` | 매핑 하나를 추가합니다.                                           |
+| `removeMapping(mappingId)`       | 매핑 하나를 삭제합니다.                                           |
+| `clearMappings()`                | 모든 매핑을 삭제합니다.                                           |
+| `updateMappings(next)`           | 목록 전체를 교체합니다.                                           |
+| `sameLineMapping()`              | 위치가 같은 행끼리 연결하며, 더 짧은 테이블에서 멈춥니다.         |
+| `sameNameMapping(name)`          | 지정한 컬럼의 값이 같은 행끼리 연결합니다. 기존 매핑은 교체됩니다. |
+
+## Action
+
+`onMappingChange`는 `action`으로 무슨 일이 있었는지 알려 줍니다. `action`은 `type`과 `payload`를 가진 객체입니다.
+
+| `type`              | `payload`                                 |
+| ------------------- | ----------------------------------------- |
+| `ADD_MAPPING`       | `sourceId`, `targetId`, `mapping`         |
+| `REMOVE_MAPPING`    | `mappingId`, `removedMapping`             |
+| `CLEAR_MAPPINGS`    | `clearedMappings`                         |
+| `UPDATE_MAPPINGS`   | `previousMappings`, `newMappings`         |
+| `SAME_LINE_MAPPING` | `previousMappings`, `newMappings`         |
+| `SAME_NAME_MAPPING` | `name`, `previousMappings`, `newMappings` |
+
+행 관련 action은 [행](./rows)에 있습니다. 전체 유니온인 `NotifyAction`은 [타입](../api/types)에서 확인하실 수 있습니다.

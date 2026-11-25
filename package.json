@@ -7,9 +7,19 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
+    },
+    "./headless": {
+      "types": "./dist/headless.d.ts",
+      "import": "./dist/headless.mjs",
+      "require": "./dist/headless.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.mjs",
+      "require": "./dist/core.js"
     },
     "./styles": {
       "import": "./dist/react-table-mapping.css",
@@ -20,7 +30,9 @@
   },
   "style": "./dist/react-table-mapping.css",
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./dist/index.mjs",
+    "./dist/index.js"
   ],
   "files": [
     "dist"

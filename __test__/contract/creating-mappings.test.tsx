@@ -1,10 +1,10 @@
-import { act } from '@testing-library/react';
+import { act, fireEvent } from '@testing-library/react';
 import { PointerEventsCheckLevel, type UserEvent, userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { FieldItem, FieldItemInput } from '@/types/table-mapping';
 
-import { mappingOf, renderConsumer, sourceFixture, targetFixture } from '../helpers/consumer';
+import { mappingOf, removeButtons, renderConsumer, sourceFixture, targetFixture } from '../helpers/consumer';
 import { setRect } from '../helpers/rects';
 
 /**
@@ -332,6 +332,27 @@ describe.each(DRAG_LAYOUTS)('contract: dragging a connector onto a target — $n
     expect(harness.state().mappings).toEqual([mappingOf('source-1', 'target-2')]);
   });
 
+  // The reach is 15px: 12px short connects, 20px short does not. Together they pin it between
+  // the two, which a drop on the anchor or one a screen away cannot.
+  it.each([
+    { short: 12, connects: true },
+    { short: 20, connects: false },
+  ])('a drop $short px short of the connector connects: $connects', async ({ short, connects }) => {
+    const user = userEvent.setup();
+    const harness = renderConsumer();
+
+    layoutConnectors(harness.container, layout);
+
+    const anchor = targetDropPoint(harness.container, 'target-2');
+
+    await dragSourceOnto(user, harness.container, 'source-1', {
+      clientX: anchor.clientX - short,
+      clientY: anchor.clientY,
+    });
+
+    expect(harness.state().mappings).toEqual(connects ? [mappingOf('source-1', 'target-2')] : []);
+  });
+
   it('creates the mapping and reports it to the consumer', async () => {
     const user = userEvent.setup();
     const harness = renderConsumer();
@@ -421,5 +442,236 @@ describe('contract: dragging a connector onto a target — guards preceding the 
 
     expect(harness.onMappingChange).not.toHaveBeenCalled();
     expect(harness.state().mappings).toEqual([]);
+  });
+});
+
+/**
+ * Connecting without a pointer: start on a source, walk the targets, confirm.
+ *
+ * Focus is the only cursor a keyboard user has, so most of what is asserted here is where focus
+ * lands. What jsdom cannot say stays in `e2e/keyboard-connect.spec.ts`: that the arrow keys do
+ * not scroll the page, a real mouse click from source to target, a drag taking over a started
+ * connection, the Space keyup not restarting one, and Tab leaving the group.
+ *
+ * Space is sent as a bare keydown: the library acts on the keydown, and the keyup that would
+ * follow in a browser is exactly the part e2e covers.
+ */
+describe('contract: connecting with the keyboard', () => {
+  const connector = (container: HTMLElement, side: 'source' | 'target', n: number) =>
+    container.querySelector<HTMLElement>(`#connector-${side}-${side}-${n}`)!;
+  const liveRegion = (container: HTMLElement) => container.querySelector('[role="status"][aria-live="polite"]')!;
+  const connecting = (container: HTMLElement) => container.querySelectorAll('[data-connecting]');
+  const candidates = (container: HTMLElement) => container.querySelectorAll('[data-candidate]');
+
+  function setup() {
+    const user = userEvent.setup();
+    const harness = renderConsumer();
+
+    return {
+      user,
+      harness,
+      source: (n: number) => connector(harness.container, 'source', n),
+      target: (n: number) => connector(harness.container, 'target', n),
+    };
+  }
+
+  it('Enter on a source starts a connection and moves focus to the first target', async () => {
+    const { user, harness, source, target } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{Enter}');
+
+    expect(target(1)).toHaveFocus();
+    expect(source(1)).toHaveAttribute('data-connecting', 'true');
+    expect(harness.state().mappings).toEqual([]);
+  });
+
+  it('arrow keys walk the targets, and Enter connects the one focused', async () => {
+    const { user, harness, source, target } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{Enter}{ArrowDown}');
+
+    expect(target(2)).toHaveFocus();
+    expect(target(2)).toHaveAttribute('data-candidate', 'true');
+
+    await user.keyboard('{Enter}');
+
+    expect(harness.state().mappings).toEqual([mappingOf('source-1', 'target-2')]);
+    // Back on the source, so the next key lands on the sources rather than a row's remove button.
+    expect(source(1)).toHaveFocus();
+    expect(connecting(harness.container)).toHaveLength(0);
+  });
+
+  it('the next connection starts at the target chosen last', async () => {
+    const { user, source, target } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{Enter}{ArrowDown}{Enter}');
+    await user.keyboard('{Enter}');
+
+    expect(target(2)).toHaveFocus();
+  });
+
+  it('Home and End jump to the ends of the sources while nothing is being drawn', async () => {
+    const { user, source } = setup();
+
+    act(() => source(2).focus());
+
+    await user.keyboard('{Home}');
+    expect(source(1)).toHaveFocus();
+
+    await user.keyboard('{End}');
+    expect(source(3)).toHaveFocus();
+  });
+
+  it('Home and End jump to the ends of the targets mid-connection', async () => {
+    const { user, source, target } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{Enter}{End}');
+
+    expect(target(3)).toHaveFocus();
+    expect(target(3)).toHaveAttribute('data-candidate', 'true');
+
+    await user.keyboard('{Home}');
+
+    expect(target(1)).toHaveFocus();
+    expect(target(1)).toHaveAttribute('data-candidate', 'true');
+  });
+
+  it('arrows walk the sources while nothing is being drawn, wrapping at the ends', async () => {
+    const { user, source } = setup();
+
+    act(() => source(1).focus());
+
+    await user.keyboard('{ArrowDown}');
+    expect(source(2)).toHaveFocus();
+
+    await user.keyboard('{ArrowUp}{ArrowUp}');
+    expect(source(3)).toHaveFocus();
+
+    await user.keyboard('{ArrowDown}');
+    expect(source(1)).toHaveFocus();
+  });
+
+  it('Space starts and confirms, and arrows walk the targets, wrapping at the ends', () => {
+    const { harness, source, target } = setup();
+
+    act(() => source(1).focus());
+    fireEvent.keyDown(source(1), { key: ' ' });
+
+    expect(target(1)).toHaveFocus();
+
+    fireEvent.keyDown(target(1), { key: 'ArrowUp' });
+    expect(target(3)).toHaveFocus();
+
+    fireEvent.keyDown(target(3), { key: 'ArrowDown' });
+    expect(target(1)).toHaveFocus();
+
+    fireEvent.keyDown(target(1), { key: ' ' });
+
+    expect(harness.state().mappings).toEqual([mappingOf('source-1', 'target-1')]);
+    expect(source(1)).toHaveFocus();
+  });
+
+  it('Escape cancels, puts focus back on the source and says so', async () => {
+    const { user, harness, source } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{Enter}{ArrowDown}{Escape}');
+
+    expect(harness.state().mappings).toEqual([]);
+    expect(source(1)).toHaveFocus();
+    expect(connecting(harness.container)).toHaveLength(0);
+    expect(candidates(harness.container)).toHaveLength(0);
+    expect(liveRegion(harness.container)).toHaveTextContent('Cancelled connecting from S1.');
+  });
+
+  it('a second connection cannot start while one is being drawn', async () => {
+    const { user, harness, source } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{Enter}');
+
+    // Focus is somewhere else on the sources and Enter is pressed there; the first is still open.
+    act(() => source(2).focus());
+    await user.keyboard('{Enter}');
+
+    expect(source(1)).toHaveAttribute('data-connecting', 'true');
+    expect(source(2)).not.toHaveAttribute('data-connecting');
+    expect(source(2)).toHaveFocus();
+    expect(liveRegion(harness.container)).toHaveTextContent('Started connecting from S1');
+    expect(liveRegion(harness.container)).not.toHaveTextContent('S2');
+  });
+
+  it('a click with no pointer behind it starts and confirms a connection', () => {
+    const { harness, source, target } = setup();
+
+    fireEvent.click(source(1), { detail: 0 });
+    expect(source(1)).toHaveAttribute('data-connecting', 'true');
+
+    fireEvent.click(target(2), { detail: 0 });
+
+    expect(harness.state().mappings).toEqual([mappingOf('source-1', 'target-2')]);
+    expect(connecting(harness.container)).toHaveLength(0);
+  });
+
+  it('clicking the source being connected from cancels the connection and does not restart it', async () => {
+    const { user, harness, source } = setup();
+
+    // A real click is a press and a release at the connector; with every rect at zero the release
+    // would sit on top of every target, so the layout is given real distances.
+    layoutConnectors(harness.container, DRAG_LAYOUTS[0]);
+
+    await user.click(source(1));
+    expect(source(1)).toHaveAttribute('data-connecting', 'true');
+
+    await user.click(source(1));
+
+    expect(connecting(harness.container)).toHaveLength(0);
+    expect(candidates(harness.container)).toHaveLength(0);
+    expect(harness.state().mappings).toEqual([]);
+  });
+
+  it('clicking a different source switches the connection to it', async () => {
+    const { user, harness, source, target } = setup();
+
+    layoutConnectors(harness.container, DRAG_LAYOUTS[0]);
+
+    await user.click(source(1));
+    await user.click(source(2));
+
+    expect(source(2)).toHaveAttribute('data-connecting', 'true');
+    expect(source(1)).not.toHaveAttribute('data-connecting');
+    expect(harness.container.querySelectorAll('.target-connector:focus')).toHaveLength(1);
+    expect(target(1)).toHaveFocus();
+  });
+
+  it('the tab stop survives the row that held it being removed', async () => {
+    const { user, harness, source } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{ArrowDown}');
+    expect(source(2)).toHaveFocus();
+
+    act(() => {
+      fireEvent.click(removeButtons(harness.container, 'source')[1]);
+    });
+
+    const stops = Array.from(harness.container.querySelectorAll('[id^="connector-source-"]')).filter(
+      (el) => el.getAttribute('tabindex') === '0',
+    );
+
+    expect(stops).toHaveLength(1);
+  });
+
+  it('says what was connected, and how many there are now', async () => {
+    const { user, harness, source } = setup();
+
+    act(() => source(1).focus());
+    await user.keyboard('{Enter}{Enter}');
+
+    expect(liveRegion(harness.container)).toHaveTextContent('Connected S1 to T1. 1 connection total.');
   });
 });

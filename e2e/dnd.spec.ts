@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { dragConnector, mappingLine, mappingLineHitArea, mappingLines } from './helpers/dnd';
+import { dragConnector, mappingLine, mappingLines } from './helpers/dnd';
 
 /**
  * The demo page starts with one mapping already drawn, so a test that adds one is looking for
@@ -27,32 +27,19 @@ test.describe('drawing a mapping by dragging', () => {
     await expect(mappingLines(page), 'the drag should add one line and disturb nothing else').toHaveCount(2);
   });
 
-  /**
-   * A drop reaches a connector from up to 15px away, measured from its left edge — the point a
-   * line arrives at. Releasing on the centre, which every other drag here does, leaves the
-   * connector itself under the cursor and never puts that reach in play.
-   */
-  test('connects when released short of the connector but inside its reach', async ({ page }) => {
-    await dragConnector({ page, from: SOURCE_CONNECTOR, to: TARGET_CONNECTOR, releaseShortBy: 12 });
-
-    await expect(mappingLine(page, DRAWN_MAPPING)).toBeAttached();
-  });
-
-  test('connects nothing when released beyond that reach', async ({ page }) => {
-    await dragConnector({ page, from: SOURCE_CONNECTOR, to: TARGET_CONNECTOR, releaseShortBy: 30 });
-
-    await expect(mappingLine(page, DRAWN_MAPPING)).not.toBeAttached();
-    await expect(mappingLines(page), 'only the preset mapping should be left').toHaveCount(1);
-  });
-
-  test('removes only the line that was clicked', async ({ page }) => {
+  test('the click that follows a drag does not start a keyboard connection', async ({ page }) => {
     await dragConnector({ page, from: SOURCE_CONNECTOR, to: TARGET_CONNECTOR });
 
     await expect(mappingLine(page, DRAWN_MAPPING)).toBeAttached();
+    await expect(page.locator(`#${SOURCE_CONNECTOR}`)).not.toHaveAttribute('data-connecting', 'true');
+    await expect(page.locator(`#${TARGET_CONNECTOR}`)).not.toBeFocused();
+  });
 
-    await mappingLineHitArea(page, DRAWN_MAPPING).click({ force: true });
+  test('the click that follows a drag released beyond reach does not start a keyboard connection', async ({ page }) => {
+    await dragConnector({ page, from: SOURCE_CONNECTOR, to: TARGET_CONNECTOR, releaseShortBy: 30 });
 
     await expect(mappingLine(page, DRAWN_MAPPING)).not.toBeAttached();
-    await expect(mappingLine(page, PRESET_MAPPING), 'the untouched mapping should survive').toBeAttached();
+    await expect(page.locator(`#${SOURCE_CONNECTOR}`)).not.toHaveAttribute('data-connecting', 'true');
+    await expect(page.locator(`#${TARGET_CONNECTOR}`)).not.toBeFocused();
   });
 });

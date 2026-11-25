@@ -1,0 +1,73 @@
+---
+title: Headless
+---
+
+import Demo from '@site/src/components/Demo';
+import Headless from '@site/src/demos/Headless';
+import HeadlessSource from '!!raw-loader!@site/src/demos/Headless';
+
+# Headless
+
+`react-table-mapping/headless`는 보드의 외형 없이 동작만 제공합니다. 상태, 행 위치 측정, 연결선 좌표 계산, 포인터와 키보드 제스처가 여기에 포함됩니다. 화면에 그려지는 모든 요소는 직접 만드십시오.
+
+## 언제 사용하나요
+
+`TableMapping`이 페이지에 맞지 않을 때 headless 진입점을 사용합니다.
+
+- 행을 이미 가지고 있는 테이블, 가상화 목록, 디자인 시스템을 그대로 써야 하는 경우
+- 두 테이블을 나란히 놓는 배치가 아닌 다른 레이아웃이 필요한 경우
+- 라이브러리의 스타일시트를 페이지에 넣고 싶지 않은 경우
+
+기본 테이블로 충분하다면 `TableMapping`을 그대로 사용하십시오. 모양을 어디까지 바꿀 수 있는지는 [스타일링](./styling)에서 확인할 수 있습니다.
+
+## 훅 하나와 몇 개의 getter
+
+```tsx
+import { MappingCanvas, useMappingBoard } from 'react-table-mapping/headless';
+
+const board = useMappingBoard({ sources, targets, mappings, onMappingChange });
+```
+
+`useMappingBoard`는 컴포넌트와 같은 `sources`, `targets`, `mappings`, `lineType`, `onMappingChange`를 받으므로 [상태 관리](./state)의 내용이 그대로 적용됩니다. 렌더링에 필요한 데이터(`sources`, `targets`, `mappings`, `lines`, `dragLine`, `markers`)와 `actions`를 반환하며, `actions`는 [ref](../api/ref)와 같은 메서드 모음입니다.
+
+지원되는 공개 인터페이스는 이 훅 하나입니다. 훅을 구성하는 내부 훅들은 서로 의존하는 방식이 계약이 아니므로 내보내지 않습니다.
+
+## Prop getter
+
+각 요소의 동작은 getter를 통해 전달됩니다. 반환된 값을 직접 만든 요소에 펼쳐서 사용하십시오.
+
+```tsx
+<button {...board.getConnectorProps({ side: 'source', id: field.id })} />
+```
+
+반환값에는 이벤트 핸들러, `tabIndex`, ARIA 속성, `ref`가 들어 있습니다. `ref`는 getter가 가지고 있으므로 같은 요소에 직접 `ref`를 쓰면 라이브러리가 등록한 `ref`가 덮어씌워져서, 해당 행으로 가는 연결선이 아무 경고 없이 그려지지 않게 됩니다. 대신 getter에 넘기면 두 `ref`가 합쳐집니다.
+
+```tsx
+board.getConnectorProps({ side: 'source', id: field.id, ref: myRef });
+```
+
+`getRootProps`도 같은 방식으로 `ref`를 받습니다.
+
+## 구성 요소
+
+아래 순서대로 조립합니다.
+
+1. **루트.** `getRootProps({ label })`는 두 열과 캔버스를 모두 감싸는 요소에 붙입니다. 모든 커넥터 위치가 이 요소를 기준으로 측정되므로, 내용만큼의 너비로 두고 `position: relative`를 지정하십시오.
+2. **커넥터 그룹.** `getConnectorGroupProps({ side, label })`는 한쪽의 커넥터를 담는 목록에 붙입니다. `role="toolbar"`가 지정되며, 이 역할 덕분에 스크린 리더가 화살표 키를 페이지에 넘겨줍니다.
+3. **커넥터.** `getConnectorProps({ side, id })`는 행마다 하나씩 `<button>`에 붙입니다. 드래그와 키보드 핸들러가 들어 있습니다. 연결하는 동안에는 시작 커넥터에 `data-connecting`, 연결 가능한 커넥터에 `data-candidate`가 붙으며, 이 값으로 스타일을 지정합니다.
+4. **캔버스.** `<MappingCanvas {...board.getCanvasProps()} markers={board.markers}>`는 연결선을 그리는 SVG입니다.
+5. **연결선.** `board.lines`의 항목마다 캔버스 안에 요소를 하나씩 그리고 `path`를 사용합니다. 여기에 `getMappingLineProps({ id })`를 펼치면 연결선에 호버, 포커스, 삭제 동작이 붙습니다. 드래그 중에는 `board.dragLine`에 미리보기 선의 시작점과 끝점이 들어 있습니다.
+6. **삭제 컨트롤.** `getRemoveMappingProps({ id, standalone: true })`는 매핑 하나를 지우는 버튼에 붙입니다. `board.mappingDescriptions`에는 각 매핑의 레이블이 들어 있어 연결 목록을 텍스트로 보여 줄 때 쓰기 좋습니다.
+7. **라이브 리전.** `board.announcement`는 변경 후 읽어 줄 문구입니다. `role="status"`와 `aria-live="polite"`를 가진 요소 안에 렌더링하고, 이 요소는 항상 DOM에 있어야 합니다.
+
+## 키보드와 스크린 리더
+
+키보드 처리를 직접 작성할 필요는 없습니다. getter와 함께 제공됩니다. 화살표 키로 커넥터 사이를 이동하고, 출발 항목을 고른 뒤 도착 항목을 골라 연결합니다. 그룹, 루트, 라이브 리전이 중요한 이유도 여기에 있습니다. 이것들이 없으면 제스처는 동작하지만 스크린 리더 사용자는 무슨 일이 일어났는지 들을 수 없습니다.
+
+읽어 줄 이름은 `describeField`와 `describeMapping`으로, 안내 문구는 `announcements`로 바꿀 수 있습니다.
+
+## 예제
+
+왼쪽 점에서 오른쪽 점으로 드래그하거나, 키보드로 같은 동작을 해 보십시오.
+
+<Demo component={Headless} source={HeadlessSource} />

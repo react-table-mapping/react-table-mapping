@@ -1,0 +1,65 @@
+/**
+ * The site borrows the library's own tokens (system.css), so a board on any page looks like it
+ * belongs to the page around it.
+ */
+:root {
+  --rtm-ink: #151826;
+  --rtm-paper: #f3f4f9;
+  --rtm-rule: #d3d6ea;
+  --rtm-muted: #676a7b;
+  --rtm-signal: #0369d3;
+  --rtm-surface: #ffffff;
+
+  --ifm-color-primary: #0369d3;
+  --ifm-color-primary-dark: #035fbe;
+  --ifm-color-primary-darker: #0359b3;
+  --ifm-color-primary-darkest: #024993;
+  --ifm-color-primary-light: #0473e8;
+  --ifm-color-primary-lighter: #0479f3;
+  --ifm-color-primary-lightest: #1f8bfb;
+
+  --ifm-font-family-base: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+    'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ifm-heading-font-weight: 750;
+  --ifm-code-font-size: 92%;
+  --docusaurus-highlighted-code-line-bg: rgba(3, 105, 211, 0.08);
+}
+
+[data-theme='dark'] {
+  --rtm-ink: #eef0ff;
+  --rtm-paper: #151826;
+  --rtm-rule: #3a3d4f;
+  --rtm-muted: #afb2c5;
+  --rtm-signal: #5ebaff;
+  --rtm-surface: #242632;
+
+  --ifm-background-color: #151826;
+  --ifm-background-surface-color: #1b1e2d;
+  --ifm-color-primary: #5ebaff;
+  --ifm-color-primary-dark: #3eacff;
+  --ifm-color-primary-darker: #2ea5ff;
+  --ifm-color-primary-darkest: #008ff7;
+  --ifm-color-primary-light: #7ec8ff;
+  --ifm-color-primary-lighter: #8ecdff;
+  --ifm-color-primary-lightest: #bfe3ff;
+  --docusaurus-highlighted-code-line-bg: rgba(94, 186, 255, 0.12);
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+[data-theme='dark'] .button--primary {
+  --ifm-button-color: #151826;
+}
+
+.footer--dark {
+  --ifm-footer-background-color: #151826;
+}
+
+[data-theme='dark'] .footer--dark {
+  border-top: 1px solid var(--rtm-rule);
+}

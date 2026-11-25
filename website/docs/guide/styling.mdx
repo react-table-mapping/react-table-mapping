@@ -1,0 +1,153 @@
+---
+title: Styling
+---
+
+import Demo from '@site/src/components/Demo';
+import Styling from '@site/src/demos/Styling';
+import StylingSource from '!!raw-loader!@site/src/demos/Styling';
+
+# Styling
+
+## Import the styles
+
+```tsx
+import 'react-table-mapping/styles';
+```
+
+The stylesheet defines its CSS variables on `:root` and overrides them under a `.dark` class, so dark mode is switched on by putting `dark` on an ancestor element (for example `<html class="dark">`).
+
+## Line type, color and width
+
+The lines are SVG paths, so they are styled through props rather than CSS.
+
+| Prop             | Type                                   | Default      |
+| ---------------- | -------------------------------------- | ------------ |
+| `lineType`       | `'bezier'` \| `'straight'` \| `'step'` | `'straight'` |
+| `lineColor`      | `string`                               | `'#009bff'`  |
+| `lineWidth`      | `number`                               | `1.7`        |
+| `hoverLineColor` | `string`                               | `'#e3f3ff'`  |
+
+Change them in the demo below.
+
+<Demo component={Styling} source={StylingSource} />
+
+## CSS variables
+
+Override these after importing the stylesheet. The defaults below are the light-mode values; `.dark` has its own set.
+
+```css
+:root {
+  --color-bg-mapping-primary: #ffffff;
+  --color-border-default: #d3d6ea;
+}
+
+.dark {
+  --color-bg-mapping-primary: #242632;
+  --color-border-default: #545667;
+}
+```
+
+| Variable                                | Default                     | Purpose                                 |
+| --------------------------------------- | --------------------------- | --------------------------------------- |
+| `--color-text-default`                  | `var(--gray-1000)`          | Header and body text                    |
+| `--color-text-secondary`                | `var(--gray-700)`           | Secondary text                          |
+| `--color-text-tertiary`                 | `var(--gray-600)`           | Placeholders and hints                  |
+| `--color-text-danger`                   | `var(--danger-600)`         | Error text                              |
+| `--color-icon-primary`                  | `var(--info-900)`           | Connector dots                          |
+| `--color-icon-info`                     | `var(--info-600)`           | Hovered connector, focus glow on a line |
+| `--color-icon-danger`                   | `var(--danger-600)`         | Remove button icon                      |
+| `--color-bg-mapping-primary`            | `var(--gray-50)`            | Board and table background              |
+| `--color-bg-mapping-primary-hover`      | `var(--gray-100)`           | Row hover                               |
+| `--color-bg-mapping-secondary`          | `var(--gray-100)`           | Table header background                 |
+| `--color-bg-mapping-secondary-hover`    | `var(--gray-200)`           | Secondary surface hover                 |
+| `--color-bg-mapping-secondary-selected` | `var(--gray-400)`           | Selected surface                        |
+| `--color-bg-mapping-secondary-disabled` | `var(--gray-300)`           | Disabled input and select background   |
+| `--color-border-default`                | `var(--gray-400)`           | Row, header and input borders           |
+| `--color-border-danger`                 | `var(--danger-600)`         | Remove button border and remove band    |
+| `--shadow-sm`                           | `0px 1px 2px 0px #0000000d` | Small shadow                            |
+
+The palette these point to (`--gray-50` to `--gray-1000`, `--info-100` to `--info-900`, `--danger-600`) is defined on `:root` as well, so you can retune the board by changing the palette instead.
+
+## Remove band color
+
+An addressed line shows a band behind it: the area a click removes. Its color is `--color-border-danger`, drawn at 18% opacity, so one variable recolors both the band and the remove button border.
+
+## Disabled state
+
+`disabled` (default `false`) makes the board read-only. Inputs and selects are disabled and take `--color-bg-mapping-secondary-disabled`, the connectors and lines stop reacting to the pointer, and the row remove buttons are not rendered.
+
+```tsx
+<TableMapping disabled /* ... */ />
+```
+
+## Narrow containers
+
+Each table keeps a minimum width of 300px and sizes its columns to their content, so when the board is narrower than that it scrolls sideways inside itself. If you would rather have the tables shrink and cut long values with an ellipsis, wrap the board in a class of your own and override a few rules under it:
+
+```css
+.narrow-board .source-table,
+.narrow-board .target-table {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* A grid item's minimum is its content; 0 lets the columns shrink past it. */
+.narrow-board .source-table-row > *,
+.narrow-board .target-table-row > * {
+  min-width: 0;
+}
+
+.narrow-board .custom-cell-text,
+.narrow-board .source-table-header-cell,
+.narrow-board .target-table-header-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.narrow-board .mapping-table-select-trigger {
+  min-width: 0;
+}
+
+.narrow-board .mapping-table-select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+```
+
+```tsx
+<div className="narrow-board">
+  <TableMapping {...props} />
+</div>
+```
+
+:::caution
+These selectors are the library's internal class names, not a documented API. Keep the override in one place so it is easy to check after upgrading.
+:::
+
+The full value of a cut-off text cell is not shown on hover; inputs and selects still hold the whole value.
+
+## Custom field components
+
+A cell is described by the field item. `type: 'input'` and `type: 'select'` accept `attributes`, which are passed to the underlying `<input>` or `<select>`, plus an `onChange` callback.
+
+```tsx
+const customFields = [
+  {
+    id: 'source-0',
+    key: 'source-0',
+    name: {
+      type: 'input',
+      columnKey: 'name',
+      value: 'Custom Field',
+      attributes: { placeholder: 'Enter field name...', maxLength: 50 },
+      onChange: (value) => console.log(value),
+    },
+  },
+];
+```
+
+To replace what is shown when a table has no rows, pass `noDataComponent`. For fully custom markup, see the [headless guide](./headless).

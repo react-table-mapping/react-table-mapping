@@ -7,8 +7,9 @@ import { dragConnector, mappingLine, mappingLineHitArea, mappingLines } from './
  *
  * Before this file the entire regression net for the headless migration was two tests
  * (`dnd.spec.ts`), which is not enough to gate a six-phase refactor. These cover the
- * paths phases 2-4 actually rewrite: geometry re-measurement after a layout change,
- * line-type rendering, the disabled guard, and the ref-driven mutation API.
+ * paths phases 2-4 actually rewrite: geometry re-measurement after a layout change and the
+ * disabled guard. Line-type shapes and the ref-driven mutations are pinned in jsdom
+ * (`core/createLinePath`, `contract/creating-mappings`, `contract/removing-mappings`).
  *
  * Fixture is `src/App.tsx`: 5 sources, 3 targets, one preset mapping `mapping-4-2`.
  */
@@ -79,31 +80,6 @@ test.describe('mapping geometry', () => {
   });
 });
 
-test.describe('line types', () => {
-  test('renders a cubic curve for bezier', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('select').selectOption('bezier');
-
-    expect(await pathOf(page, PRESET_MAPPING)).toContain(' C ');
-  });
-
-  test('renders a single segment for straight', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('select').selectOption('straight');
-
-    expect(await pathOf(page, PRESET_MAPPING)).toMatch(/^M [\d.-]+ [\d.-]+ L [\d.-]+ [\d.-]+$/);
-  });
-
-  test('renders three segments for step', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('select').selectOption('step');
-
-    const d = await pathOf(page, PRESET_MAPPING);
-
-    expect(d.match(/ L /g) ?? []).toHaveLength(3);
-  });
-});
-
 test.describe('disabled', () => {
   test('blocks mapping creation and deletion', async ({ page }) => {
     await page.goto('/');
@@ -117,24 +93,5 @@ test.describe('disabled', () => {
 
     await expect(mappingLine(page, 'mapping-4-2'), 'a click should remove nothing while disabled').toBeAttached();
     await expect(mappingLines(page)).toHaveCount(1);
-  });
-});
-
-test.describe('ref-driven mutations', () => {
-  test('clearMappings removes every line', async ({ page }) => {
-    await page.goto('/');
-    await expect(mappingLines(page)).toHaveCount(1);
-
-    await page.getByRole('button', { name: 'Clear Mappings' }).click();
-    await expect(mappingLines(page)).toHaveCount(0);
-  });
-
-  test('sameLineMapping pairs rows up to the shorter table', async ({ page }) => {
-    await page.goto('/');
-
-    await page.getByRole('button', { name: 'Same Line Mapping' }).click();
-
-    // 5 sources, 3 targets — the shorter side wins.
-    await expect(mappingLines(page)).toHaveCount(3);
   });
 });

@@ -4,15 +4,10 @@ import MappingLines from '@/components/MappingLines';
 import SourceTable from '@/components/SourceTable';
 import TargetTable from '@/components/TargetTable';
 import type { Point } from '@/core/types';
-import { useConnectorProps } from '@/headless/internal/useConnectorProps';
-import { useConnectorRegistry } from '@/headless/internal/useConnectorRegistry';
-import { useGeometry } from '@/headless/internal/useGeometry';
-import { useLayoutProps } from '@/headless/internal/useLayoutProps';
-import { useMappingProps } from '@/headless/internal/useMappingProps';
-import { usePointerDrag } from '@/headless/internal/usePointerDrag';
-import useTableMapping from '@/hooks/useTableMapping';
+import { MappingCanvas } from '@/headless';
+import { useMappingBoard } from '@/headless/useMappingBoard';
 import TableMappingStoreContext from '@/store/TableMappingStoreContext';
-import { type LineType, type TableMappingProps } from '@/types/table-mapping';
+import { type FieldItem, type LineType, type Mapping, type TableMappingProps } from '@/types/table-mapping';
 
 /**
  * The dashed line shown while a connection is being dragged.
@@ -33,13 +28,23 @@ function previewPath(lineType: LineType, from: Point, to: Point): string {
   return `M ${from.x} ${from.y} C ${from.x} ${from.y}, ${to.x - 100} ${to.y}, ${to.x} ${to.y}`;
 }
 
+/** What {@link useMappingBoard} hands a `describeMapping` alongside the mapping itself. */
+type DescribeContext = { sources: FieldItem[]; targets: FieldItem[] };
+
+/**
+ * One frozen empty array for every omitted list — see the note in `useMappingBoard`. `= []`
+ * here would hand the board a new array on every render, which is how it is told the caller
+ * changed something.
+ */
+const EMPTY: never[] = [];
+
 function TableMapping({
   ref,
-  sources = [],
-  targets = [],
-  mappings = [],
-  sourceColumns = [],
-  targetColumns = [],
+  sources = EMPTY,
+  targets = EMPTY,
+  mappings = EMPTY,
+  sourceColumns = EMPTY,
+  targetColumns = EMPTY,
   lineType = 'straight',
   lineColor = '#009bff',
   lineWidth = 1.7,
@@ -54,71 +59,96 @@ function TableMapping({
   onBeforeMappingLineRemove,
   onAfterMappingChange,
   onMappingChange,
+  id,
+  'aria-label': ariaLabel,
 }: TableMappingProps) {
-  const tableMappingHook = useTableMapping({
+  // What a row is called when it is read out. The first column is the one a row is named by
+  // everywhere else in this component, so it is the one used here.
+  const describeField = useCallback(
+    (field: FieldItem) => {
+      const first = sourceColumns[0] ? field[sourceColumns[0].key] : undefined;
+
+      if (typeof first === 'string') return first;
+      if (first && 'value' in first && typeof first.value === 'string') return first.value;
+
+      return field.id;
+    },
+    [sourceColumns],
+  );
+
+  const describeMapping = useCallback(
+    (mapping: Mapping, { sources: currentSources, targets: currentTargets }: DescribeContext) => {
+      const nameOf = (fields: FieldItem[], id: string) => {
+        const field = fields.find((candidate) => candidate.id === id);
+
+        return field ? describeField(field) : id;
+      };
+
+      return `${nameOf(currentSources, mapping.source)} to ${nameOf(currentTargets, mapping.target)}, press to remove`;
+    },
+    [describeField],
+  );
+
+  // Built on the same public API a consumer would use. Nothing below reaches past it, which is
+  // what keeps `/headless` honest: a gap in it would have to be worked around right here.
+  const board = useMappingBoard({
     sources,
     targets,
     mappings,
-    onStateChange: onMappingChange || (() => {}),
+    lineType,
+    disabled,
+    describeMapping,
+    describeField,
+    onMappingChange,
+    onBeforeDisconnect: onBeforeMappingLineRemove,
+    onAfterDisconnect: onAfterMappingLineRemove,
   });
 
   const {
-    sourceFields,
-    targetFields,
+    sources: sourceFields,
+    targets: targetFields,
     mappings: currentMappings,
-    redrawCount,
-    addMapping,
-    removeMapping,
-    _store,
-  } = tableMappingHook;
+    lines,
+    markers,
+    remeasure,
+    dragLine,
+    activeMappingId,
+    clearHoveredMapping,
+    getRootProps,
+    getCanvasProps,
+    getConnectorProps,
+    getMappingLineProps,
+    getRemoveMappingProps,
+    announcement,
+    getLiveRegionProps,
+  } = board;
 
-  useImperativeHandle(ref, () => tableMappingHook);
+  const { redrawCount, _store } = board.actions;
+
+  useImperativeHandle(ref, () => board.actions);
 
   const sourceTableRef = useRef<HTMLDivElement>(null);
   const targetTableRef = useRef<HTMLDivElement>(null);
-  const mappingContainerRef = useRef<HTMLDivElement>(null);
-
-  const registry = useConnectorRegistry();
-  const { lines, remeasure } = useGeometry({
-    rootRef: mappingContainerRef,
-    registry,
-    mappings: currentMappings,
-    lineType,
-  });
+  // Kept because the height sync below observes it. The board fills it through getRootProps.
+  const mappingContainerRef = useRef<HTMLElement>(null);
 
   /**
    * personal instance of container Height
    */
   const [containerHeight, setContainerHeight] = useState<number>(0);
 
-  const { drag, sourceHandlers } = usePointerDrag({
-    rootRef: mappingContainerRef,
-    registry,
-    targetIds: targetFields.map((field) => field.id),
-    onConnect: (sourceId, targetId) => {
-      const already = currentMappings.some((m) => m.source === sourceId && m.target === targetId);
+  // Named so the board is a landmark: without a name a region is not one, and a screen
+  // reader has to walk everything before the component to reach it.
+  const rootProps = getRootProps({ ref: mappingContainerRef, label: ariaLabel ?? 'Field mapping' });
 
-      if (!already) addMapping(sourceId, targetId);
-    },
-    disabled,
+  // MappingLines asks per line; the board has already resolved the label against the rows.
+  const describeLine = useCallback(
+    (mapping: Mapping) => board.mappingDescriptions.find((entry) => entry.id === mapping.id)?.label ?? mapping.id,
+    [board.mappingDescriptions],
+  );
+  const canvasProps = getCanvasProps({
+    label: `${currentMappings.length} mapping${currentMappings.length === 1 ? '' : 's'}`,
   });
-
-  const getConnectorProps = useConnectorProps({ registry, sourceHandlers });
-  const { getRootProps, getCanvasProps } = useLayoutProps({ rootRef: mappingContainerRef });
-  // The library reports that a line was activated; the decision to remove it stays here,
-  // where the consumer's own before/after hooks are.
-  const { hoveredMappingId, clearHoveredMapping, getMappingLineProps, getRemoveMappingProps } = useMappingProps({
-    disabled: disabled || drag.status === 'pointer',
-    onRemove: (mappingId) => {
-      if (onBeforeMappingLineRemove?.(mappingId) === false) return;
-
-      removeMapping(mappingId);
-      onAfterMappingLineRemove?.(mappingId);
-    },
-  });
-
-  const rootProps = getRootProps();
-  const canvasProps = getCanvasProps();
 
   /**
    * Looks up the measured line for a mapping.
@@ -186,6 +216,7 @@ function TableMapping({
       <div className="react-table-mapping">
         <div
           {...rootProps}
+          id={id}
           className="mapping-container"
           style={{
             ...rootProps.style,
@@ -201,12 +232,16 @@ function TableMapping({
             noDataComponent={noDataComponent}
             onBeforeSourceFieldRemove={onBeforeSourceFieldRemove}
             onAfterSourceFieldRemove={onAfterSourceFieldRemove}
-            tableMappingHook={tableMappingHook}
+            describeRow={describeField}
+            tableMappingHook={board.actions}
           />
 
           {/* SVG mapping line */}
-          <svg
+          <MappingCanvas
             {...canvasProps}
+            markers={markers}
+            lineColor={lineColor}
+            hoverLineColor={hoverLineColor}
             className="mapping-svg"
             style={{
               ...canvasProps.style,
@@ -220,54 +255,28 @@ function TableMapping({
               lineColor={lineColor}
               lineWidth={lineWidth}
               hoverLineColor={hoverLineColor}
-              hoveredMappingId={hoveredMappingId}
-              isDragging={drag.status === 'pointer'}
+              activeMappingId={activeMappingId}
+              describeMapping={describeLine}
+              isDragging={dragLine !== null}
               disabled={disabled}
+              markers={markers}
               getMappingLineProps={getMappingLineProps}
               getRemoveMappingProps={getRemoveMappingProps}
               mappings={currentMappings}
             />
 
             {/* dragging line */}
-            {drag.status === 'pointer' && (
+            {dragLine && (
               <path
-                d={previewPath(lineType, drag.origin, drag.current)}
+                aria-hidden
+                d={previewPath(lineType, dragLine.from, dragLine.to)}
                 stroke={lineColor}
                 strokeWidth={lineWidth}
                 strokeDasharray="5,5"
                 fill="none"
               />
             )}
-
-            {/* define arrow marker */}
-            <defs>
-              {/* normal arrow */}
-              <marker
-                id="arrowhead-normal"
-                viewBox="0 0 10 10"
-                refX="8"
-                refY="5"
-                markerWidth="4"
-                markerHeight="4"
-                orient="auto"
-              >
-                <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke={lineColor || '#3b82f6'} strokeWidth="1.5" />
-              </marker>
-
-              {/* hover arrow */}
-              <marker
-                id="arrowhead-hover"
-                viewBox="0 0 10 10"
-                refX="8"
-                refY="5"
-                markerWidth="4"
-                markerHeight="4"
-                orient="auto"
-              >
-                <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke={hoverLineColor || '#60a5fa'} strokeWidth="1.5" />
-              </marker>
-            </defs>
-          </svg>
+          </MappingCanvas>
 
           {/* target table */}
           <TargetTable
@@ -278,9 +287,15 @@ function TableMapping({
             noDataComponent={noDataComponent}
             onBeforeTargetFieldRemove={onBeforeTargetFieldRemove}
             onAfterTargetFieldRemove={onAfterTargetFieldRemove}
-            tableMappingHook={tableMappingHook}
+            describeRow={describeField}
+            tableMappingHook={board.actions}
           />
         </div>
+
+        {/* Said out loud as connections are made and removed. A new sibling at the very end of
+            the root, which is the one structural addition the DOM contract allows — the
+            existing children keep their order and their positions. */}
+        <div {...getLiveRegionProps()}>{announcement}</div>
       </div>
     </TableMappingStoreContext.Provider>
   );

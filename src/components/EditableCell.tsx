@@ -2,7 +2,7 @@ import React, { memo, useCallback } from 'react';
 
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useFieldValueProps } from '@/headless/internal/useFieldValueProps';
+import { useFieldValueProps } from '@/headless';
 import { useTableMappingStore } from '@/store/TableMappingStoreContext';
 import type { TableMappingRef } from '@/types/table-mapping';
 

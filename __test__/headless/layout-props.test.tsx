@@ -83,14 +83,31 @@ describe('getRootProps', () => {
 });
 
 describe('getCanvasProps', () => {
-  it('keeps the canvas out of the accessibility tree', () => {
+  it('is a named group, so the lines inside it can be reached and read out', () => {
+    const rootRef = rootRefHolder();
+    const Probe = () => {
+      const { getCanvasProps } = useLayoutProps({ rootRef });
+
+      return <svg {...getCanvasProps({ label: '3 mappings' })} data-testid="canvas" />;
+    };
+
+    render(<Probe />);
+
+    // Hiding the canvas hid the lines with it — each is a focusable button, and a focusable
+    // element inside aria-hidden is announced as nothing.
+    expect(screen.getByTestId('canvas')).not.toHaveAttribute('aria-hidden');
+    expect(screen.getByRole('group', { name: '3 mappings' })).toBe(screen.getByTestId('canvas'));
+  });
+
+  it('fills the root rather than taking the intrinsic size of an svg', () => {
     const rootRef = rootRefHolder();
 
     render(<Harness rootRef={rootRef} />);
 
-    // The lines duplicate what the mapping list already says; announcing them twice is worse
-    // than not announcing the drawing at all.
-    expect(screen.getByTestId('canvas')).toHaveAttribute('aria-hidden', 'true');
+    // An `<svg>` carries an intrinsic 300×150, and a specified size beats a stretch — so
+    // `inset: 0` on its own leaves a wider board's lines cut off at 300px, with every path
+    // correct and nothing reported. Measured on a 1216px board before this was added.
+    expect(screen.getByTestId('canvas')).toHaveStyle({ width: '100%', height: '100%' });
   });
 
   it('leaves the caller free to keep their own ref on the canvas', () => {

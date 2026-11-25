@@ -1,0 +1,26 @@
+{
+  "link.title.Docs": {
+    "message": "문서",
+    "description": "The title of the footer links column with title=Docs in the footer"
+  },
+  "link.title.More": {
+    "message": "더 보기",
+    "description": "The title of the footer links column with title=More in the footer"
+  },
+  "link.item.label.Getting started": {
+    "message": "시작하기",
+    "description": "The label of footer link with label=Getting started linking to /docs/getting-started"
+  },
+  "link.item.label.Changelog": {
+    "message": "변경 내역",
+    "description": "The label of footer link with label=Changelog linking to /docs/changelog"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "The label of footer link with label=GitHub linking to https://github.com/react-table-mapping/react-table-mapping"
+  },
+  "copyright": {
+    "message": "Copyright © 2026 react-table-mapping. Docusaurus로 제작되었습니다.",
+    "description": "The footer copyright"
+  }
+}

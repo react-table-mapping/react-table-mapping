@@ -1,0 +1,49 @@
+name: Deploy docs
+
+# Builds the library, then the Docusaurus site in website/ (which links the library's dist/),
+# and publishes it to GitHub Pages. Pages must be set to "GitHub Actions" in the repo settings.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: |
+            yarn.lock
+            website/yarn.lock
+      - name: Install library dependencies
+        run: yarn install --frozen-lockfile
+      - name: Build library
+        run: yarn build:lib
+      - name: Install docs dependencies
+        run: yarn install --frozen-lockfile
+        working-directory: website
+      - name: Build docs (en + ko)
+        run: yarn build
+        working-directory: website
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+      - id: deploy
+        uses: actions/deploy-pages@v4

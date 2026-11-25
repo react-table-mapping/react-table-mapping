@@ -31,6 +31,10 @@ export interface FieldValueProps {
  *
  * `onChange` takes the event rather than the string so that the result drops straight onto an
  * `<input>`. A caller who is not rendering one can hand it `{ target: { value } }`.
+ *
+ * The store comes from the caller rather than from a board. `createTableMappingStore` is what
+ * `/core` publishes, so a consumer already holding one can bind a cell to it; reaching into a
+ * board for `_store` is not the supported way to get one.
  */
 export function useFieldValueProps({
   store,

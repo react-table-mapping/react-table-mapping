@@ -1,12 +1,19 @@
 import { useCallback, useRef } from 'react';
 
+import type { DragState } from '@/core/drag/dragReducer';
 import { mergeRefs } from '@/headless/internal/mergeRefs';
 import type { ConnectorRegistry, ConnectorSide } from '@/headless/internal/useConnectorRegistry';
+import type { KeyboardConnectHandlers } from '@/headless/internal/useKeyboardConnect';
 import type { PointerDragHandlers } from '@/headless/internal/usePointerDrag';
 
 export interface GetConnectorPropsParams {
   side: ConnectorSide;
   id: string;
+  /**
+   * What this connector is, in words — "customer_id". It becomes the accessible name, which is
+   * all a screen reader has to go on: without one the row's id is read out instead.
+   */
+  label?: string;
   /**
    * A ref of your own. It is merged with the one this getter already needs on the element,
    * rather than replacing it — writing `ref` on the tag instead would drop the registration and
@@ -24,11 +31,27 @@ export interface ConnectorProps extends Partial<PointerDragHandlers> {
   /** A `<button>` inside a `<form>` submits it unless told otherwise. */
   type: 'button';
   'data-side': ConnectorSide;
+  onKeyDown: KeyboardConnectHandlers['onKeyDown'];
+  onClick: KeyboardConnectHandlers['onClick'];
+  onMouseDown: KeyboardConnectHandlers['onMouseDown'];
+  onBlur: KeyboardConnectHandlers['onBlur'];
+  /** One connector per side holds the tab stop; see {@link KeyboardConnectHandlers.tabIndex}. */
+  tabIndex: 0 | -1;
+  'aria-label': string | undefined;
+  /**
+   * Present on the source a connection is being drawn from, and on the target the keyboard has
+   * walked to. Two flags rather than one because they mean different things to whoever is
+   * drawing them: one is where the line starts, the other is where it would land.
+   */
+  'data-connecting': true | undefined;
+  'data-candidate': true | undefined;
 }
 
 export interface UseConnectorPropsParams {
   registry: ConnectorRegistry;
   sourceHandlers: (sourceId: string) => PointerDragHandlers;
+  connectorHandlers: (side: ConnectorSide, id: string) => KeyboardConnectHandlers;
+  drag: DragState;
 }
 
 /**
@@ -42,19 +65,26 @@ export interface UseConnectorPropsParams {
  * a version bump → the render that does it again. Nothing is cached when no ref was supplied:
  * the registry's own callback is already stable, and it comes back untouched.
  */
-export function useConnectorProps({ registry, sourceHandlers }: UseConnectorPropsParams) {
+export function useConnectorProps({ registry, sourceHandlers, connectorHandlers, drag }: UseConnectorPropsParams) {
   const mergedRefs = useRef(
     new Map<string, { external: React.Ref<HTMLElement>; ref: React.RefCallback<HTMLElement> }>(),
   );
 
   return useCallback(
-    ({ side, id, ref: external }: GetConnectorPropsParams): ConnectorProps => {
+    ({ side, id, label, ref: external }: GetConnectorPropsParams): ConnectorProps => {
       const internal = registry.connectorRef(side, id);
+
+      const connecting = drag.status !== 'idle' && drag.sourceId === id && side === 'source';
+      const candidate = drag.status === 'keyboard' && drag.focusedTargetId === id && side === 'target';
 
       const props: ConnectorProps = {
         ref: internal,
         type: 'button',
         'data-side': side,
+        'aria-label': label,
+        'data-connecting': connecting || undefined,
+        'data-candidate': candidate || undefined,
+        ...connectorHandlers(side, id),
         ...(side === 'source' ? sourceHandlers(id) : {}),
       };
 
@@ -71,6 +101,6 @@ export function useConnectorProps({ registry, sourceHandlers }: UseConnectorProp
 
       return { ...props, ref };
     },
-    [registry, sourceHandlers],
+    [registry, sourceHandlers, connectorHandlers, drag],
   );
 }

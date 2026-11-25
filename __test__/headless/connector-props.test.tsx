@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useEffect, useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { idleDragState } from '@/core/drag/dragReducer';
 import { useConnectorProps } from '@/headless/internal/useConnectorProps';
 import { type ConnectorRegistry, useConnectorRegistry } from '@/headless/internal/useConnectorRegistry';
 import type { PointerDragHandlers } from '@/headless/internal/usePointerDrag';
@@ -23,6 +24,18 @@ const handlers: PointerDragHandlers = {
 };
 const sourceHandlers = () => handlers;
 
+/** Stable per connector, as the real one from `useKeyboardConnect` is. */
+const keyHandlers = {
+  onKeyDown: () => {},
+  onClick: () => {},
+  onBlur: () => {},
+  onMouseDown: () => {},
+  onFocus: () => {},
+  tabIndex: 0 as const,
+};
+const connectorHandlers = () => keyHandlers;
+const idle = idleDragState;
+
 interface HarnessProps {
   /** A ref of the caller's own, as a consumer would pass one through the getter. */
   connectorRef?: React.Ref<HTMLElement>;
@@ -34,7 +47,7 @@ interface HarnessProps {
 
 const Harness = ({ connectorRef, registryOut, unrelated }: HarnessProps) => {
   const registry = useConnectorRegistry();
-  const getConnectorProps = useConnectorProps({ registry, sourceHandlers });
+  const getConnectorProps = useConnectorProps({ registry, sourceHandlers, connectorHandlers, drag: idle });
 
   useEffect(() => {
     if (registryOut) registryOut.current = registry;
@@ -96,7 +109,7 @@ describe('getConnectorProps', () => {
 
     const FormHarness = () => {
       const registry = useConnectorRegistry();
-      const getConnectorProps = useConnectorProps({ registry, sourceHandlers });
+      const getConnectorProps = useConnectorProps({ registry, sourceHandlers, connectorHandlers, drag: idle });
       const formRef = useRef<HTMLFormElement>(null);
 
       return (

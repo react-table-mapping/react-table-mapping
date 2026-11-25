@@ -19,6 +19,8 @@ export interface ConnectorRegistry {
   connectorRef: (side: ConnectorSide, id: string) => ConnectorRefCallback;
   /** The element currently mounted for one connector, or undefined if there is none. */
   getConnector: (side: ConnectorSide, id: string) => Element | undefined;
+  /** Whether an element is one of the connectors registered here — this board's, not another's. */
+  owns: (element: Element | null) => boolean;
   /** Bumps whenever an element enters or leaves, so measurement can re-run. */
   version: number;
 }
@@ -72,5 +74,15 @@ export function useConnectorRegistry(): ConnectorRegistry {
     [],
   );
 
-  return useMemo(() => ({ connectorRef, getConnector, version }), [connectorRef, getConnector, version]);
+  const owns = useCallback((element: Element | null) => {
+    if (!element) return false;
+
+    for (const registered of connectors.current.values()) {
+      if (registered === element) return true;
+    }
+
+    return false;
+  }, []);
+
+  return useMemo(() => ({ connectorRef, getConnector, owns, version }), [connectorRef, getConnector, owns, version]);
 }

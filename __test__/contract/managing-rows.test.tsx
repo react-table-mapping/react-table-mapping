@@ -1,4 +1,5 @@
 import { act, fireEvent } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { mappingOf, removeButtons, renderConsumer, sourceFixture, targetFixture } from '../helpers/consumer';
@@ -318,5 +319,99 @@ describe('contract: removing a row through its button', () => {
 
     expect(removeButtons(harness.container, 'source')).toHaveLength(0);
     expect(removeButtons(harness.container, 'target')).toHaveLength(0);
+  });
+});
+
+/**
+ * The row remove buttons of one column are a single tab stop, walked with the arrow keys.
+ *
+ * Asserted through the attributes that make a tab order (`tabindex`) and through where focus
+ * actually lands. What jsdom cannot say stays in `e2e/remove-buttons.spec.ts`: that a real Tab
+ * skips the column, that Home/End scroll the button into view, and that Space removes.
+ *
+ * Removal goes through a click with `detail: 0` — what the browser sends for Enter on a native
+ * button, and for a click nothing pointed at.
+ */
+describe.each(['source', 'target'] as const)('contract: removing a row from the keyboard — %s column', (side) => {
+  const render = () => renderConsumer({ sources: sourceFixture(4), targets: targetFixture(4) });
+  const stops = (container: HTMLElement) =>
+    removeButtons(container, side).filter((button) => button.getAttribute('tabindex') === '0');
+
+  it('is exactly one tab stop, the first row by default', () => {
+    const { container } = render();
+    const buttons = removeButtons(container, side);
+
+    expect(buttons).toHaveLength(4);
+    expect(stops(container)).toEqual([buttons[0]]);
+  });
+
+  it('ArrowDown and ArrowUp walk the column, wrapping at both ends', async () => {
+    const user = userEvent.setup();
+    const { container } = render();
+    const buttons = removeButtons(container, side);
+
+    act(() => buttons[0].focus());
+
+    await user.keyboard('{ArrowDown}');
+    expect(buttons[1]).toHaveFocus();
+
+    await user.keyboard('{ArrowUp}');
+    expect(buttons[0]).toHaveFocus();
+
+    await user.keyboard('{ArrowUp}');
+    expect(buttons[3]).toHaveFocus();
+
+    await user.keyboard('{ArrowDown}');
+    expect(buttons[0]).toHaveFocus();
+  });
+
+  it('Home and End jump to the first and last row', async () => {
+    const user = userEvent.setup();
+    const { container } = render();
+    const buttons = removeButtons(container, side);
+
+    act(() => buttons[1].focus());
+
+    await user.keyboard('{End}');
+    expect(buttons[3]).toHaveFocus();
+
+    await user.keyboard('{Home}');
+    expect(buttons[0]).toHaveFocus();
+  });
+
+  it('leaves keys held with Alt, Ctrl or Meta alone', async () => {
+    const user = userEvent.setup();
+    const { container } = render();
+    const buttons = removeButtons(container, side);
+
+    act(() => buttons[0].focus());
+
+    for (const modifier of ['Alt', 'Control', 'Meta']) {
+      await user.keyboard(`{${modifier}>}{ArrowDown}{End}{/${modifier}}`);
+    }
+
+    expect(buttons[0]).toHaveFocus();
+  });
+
+  it('removes the row through the button and hands focus, and the stop, to the next row', () => {
+    const harness = render();
+    const [first, second] = removeButtons(harness.container, side);
+
+    act(() => first.focus());
+    act(() => {
+      fireEvent.click(first, { detail: 0 });
+    });
+
+    const field = side === 'source' ? 'sources' : 'targets';
+
+    expect(harness.state()[field].map((row) => row.id)).toEqual([`${side}-2`, `${side}-3`, `${side}-4`]);
+
+    const buttons = removeButtons(harness.container, side);
+
+    expect(buttons).toHaveLength(3);
+    // The same button now sits first: it is the one that was second, not a fresh stand-in.
+    expect(buttons[0]).toBe(second);
+    expect(buttons[0]).toHaveFocus();
+    expect(stops(harness.container)).toEqual([buttons[0]]);
   });
 });

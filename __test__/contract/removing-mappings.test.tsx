@@ -1,4 +1,5 @@
 import { act, fireEvent } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { mappingOf, renderConsumer } from '../helpers/consumer';
@@ -151,5 +152,81 @@ describe('contract: clearing and replacing the whole list', () => {
     });
 
     expect(harness.state().mappings).toEqual(next);
+  });
+});
+
+/**
+ * Removing a line without a mouse. The line is a named control, focus makes it the line being
+ * addressed (what hovering does), and Enter or Space removes it. What stays in e2e: that a real
+ * browser focuses an SVG `<g>` the same way in every engine, and that no outline box is drawn
+ * around the canvas (`e2e/keyboard.spec.ts`).
+ */
+describe('contract: removing a mapping with the keyboard', () => {
+  const line = (container: HTMLElement, id: string) =>
+    container.querySelector<SVGGElement>(`[data-testid="mapping-line-${id}"]`)!;
+  const liveRegion = (container: HTMLElement) => container.querySelector('[role="status"][aria-live="polite"]')!;
+
+  it('the line is a button that says which two rows it joins', () => {
+    const harness = renderConsumer({ mappings: [MAPPING] });
+
+    expect(line(harness.container, MAPPING.id)).toHaveAttribute('role', 'button');
+    expect(line(harness.container, MAPPING.id)).toHaveAttribute('aria-label', expect.stringContaining('S1 to T2'));
+  });
+
+  it('Enter on a focused line removes it', async () => {
+    const user = userEvent.setup();
+    const other = mappingOf('source-2', 'target-1');
+    const harness = renderConsumer({ mappings: [MAPPING, other] });
+
+    act(() => line(harness.container, MAPPING.id).focus());
+    await user.keyboard('{Enter}');
+
+    expect(harness.state().mappings).toEqual([other]);
+  });
+
+  it('Space on a focused line removes it', () => {
+    const harness = renderConsumer({ mappings: [MAPPING] });
+    const target = line(harness.container, MAPPING.id);
+
+    act(() => target.focus());
+    fireEvent.keyDown(target, { key: ' ' });
+
+    expect(harness.state().mappings).toEqual([]);
+  });
+
+  it('a focused line is marked as active and carries the remove button', () => {
+    const harness = renderConsumer({ mappings: [MAPPING] });
+    const target = line(harness.container, MAPPING.id);
+
+    expect(target).not.toHaveAttribute('data-active');
+    expect(target.querySelector('.mapping-delete-button')).toBeNull();
+
+    act(() => target.focus());
+
+    expect(target).toHaveAttribute('data-active', 'true');
+    expect(target.querySelector('.mapping-delete-button')).not.toBeNull();
+  });
+
+  it('removing the last line puts focus on the source connectors, not the page', async () => {
+    const user = userEvent.setup();
+    const harness = renderConsumer({ mappings: [MAPPING] });
+
+    act(() => line(harness.container, MAPPING.id).focus());
+    await user.keyboard('{Enter}');
+
+    const stop = harness.container.querySelector('.source-connector[tabindex="0"]');
+
+    expect(stop).not.toBeNull();
+    expect(stop).toHaveFocus();
+  });
+
+  it('says what was removed, and how many are left', async () => {
+    const user = userEvent.setup();
+    const harness = renderConsumer({ mappings: [MAPPING] });
+
+    act(() => line(harness.container, MAPPING.id).focus());
+    await user.keyboard('{Enter}');
+
+    expect(liveRegion(harness.container)).toHaveTextContent(/Removed S1 to T2.*0 connections remaining\./);
   });
 });

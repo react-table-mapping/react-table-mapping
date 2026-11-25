@@ -1,0 +1,115 @@
+---
+title: Keyboard and accessibility
+---
+
+import Demo from '@site/src/components/Demo';
+import Keyboard from '@site/src/demos/Keyboard';
+import KeyboardSource from '!!raw-loader!@site/src/demos/Keyboard';
+
+# Keyboard and accessibility
+
+Everything the mouse can do, the keyboard can do too: connecting fields, removing connections and removing rows.
+
+<Demo component={Keyboard} source={KeyboardSource} />
+
+## How Tab works
+
+The board does not trap Tab. It has five groups, and each group is **one tab stop** that remembers where you left it, so a board with 200 rows costs five presses to get through, not 400.
+
+| Group | What it holds |
+| --- | --- |
+| Source connectors | the dot on each source row |
+| Mapping lines | every line between the tables |
+| Target connectors | the dot on each target row |
+| Source remove buttons | the `−` button on each source row |
+| Target remove buttons | the `−` button on each target row |
+
+Tab moves to the next group and Shift+Tab to the previous one. Inside a group the arrow keys move between items. Leaving a group and coming back lands on the item you left. Keys pressed with Alt, Ctrl or Meta are left to the browser (Alt+Left is still Back).
+
+## Keys
+
+### Connectors
+
+| Key | Action |
+| --- | --- |
+| Up / Down (or Left / Right) | previous / next connector in this column, wrapping at both ends |
+| Home / End | first / last connector in this column |
+| Enter or Space on a source | start connecting and move focus to a target |
+| Up / Down on a target while connecting | move to the previous / next target |
+| Enter or Space on a target while connecting | confirm the connection |
+| Escape | cancel the connection |
+
+### Mapping lines
+
+| Key | Action |
+| --- | --- |
+| Up / Down (or Left / Right) | previous / next line, wrapping |
+| Home / End | first / last line |
+| Enter, Space, Delete or Backspace | remove the line |
+
+Shift+Delete and Shift+Backspace are ignored. Those belong to the browser.
+
+### Remove buttons
+
+| Key | Action |
+| --- | --- |
+| Up / Down | previous / next row's button, wrapping |
+| Home / End | first / last row's button |
+| Enter or Space | remove the row |
+
+## Connecting with the keyboard
+
+1. Focus a source connector and press Enter. Focus moves to a target, starting from the target you chose last (the first one the first time).
+2. Walk the targets with the arrow keys.
+3. Press Enter to connect. Focus returns to the source you started from, so pressing Enter again starts the next connection from the target you just chose.
+
+Escape cancels and also returns focus to the source. Moving focus anywhere else, for example with Tab or by clicking elsewhere, cancels too. A connection cannot be started while another is in progress.
+
+## Where focus goes after a removal
+
+Removing never drops focus to the top of the page.
+
+- **Removing a line** moves focus to the neighbouring line. When the last line is removed, focus goes to the source connectors.
+- **Removing a row** moves focus to the next row's remove button in the same column.
+
+## Mouse and keyboard together
+
+- **Clicking a connector without dragging works like Enter.** Click a source, then click a target. This is also how a screen reader in browse mode activates a connector.
+- **Pressing a source while a connection is in progress takes over.** Pressing the same source cancels it. Pressing another source switches to it.
+- **Hovering a line shows a red band.** The band covers the area a click removes. A line reached with the keyboard shows the same band.
+- **Moving the mouse hides the keyboard highlight** until you press a key on a line again.
+
+## Screen readers
+
+### Names and landmarks
+
+The board is a labelled landmark, `Field mapping` by default. Pass `aria-label` to name it, which matters when a page holds more than one board. Pass `id` to give a skip link something to point at: the element is focusable, so following the link moves focus onto the board.
+
+```tsx
+<TableMapping id="field-board" aria-label="Customer import mapping" /* ... */ />
+```
+
+Connectors are named after their field, followed by what they are already connected to and what pressing them does — for example `email, connected to user_email. Press Enter to start a connection`. While a connection is open, targets say `Press Enter to connect, Escape to cancel`. Mapping lines are announced as buttons named after the two fields they join. Remove buttons are named `Remove` followed by the row.
+
+### Live announcements
+
+A drawing says nothing by itself, so the board has a visually hidden live region (`role="status"`, `aria-live="polite"`) that is the last child of the board root. These are the default messages:
+
+| Moment | Message |
+| --- | --- |
+| Connection started | `Started connecting from {source}. Choose a target and press Enter to connect, or Escape to cancel.` |
+| Connected | `Connected {source} to {target}. {total} connection(s) total.` |
+| Removed | `Removed {mapping}. {total} connection(s) remaining.` |
+| Cancelled | `Cancelled connecting from {source}.` |
+| Cleared | `Removed all {count} connections.` |
+
+The messages are English. To translate them, build the board with the [headless hooks](./headless.mdx) and pass `announcements` to `useMappingBoard`.
+
+### NVDA: browse mode and focus mode
+
+NVDA has two modes and they treat the arrow keys differently. Switch with `NVDA+Space`. A beep means browse mode, a click sound means focus mode.
+
+- **Browse mode (beep).** NVDA keeps the arrow keys for its virtual cursor, so the board's arrow navigation does not run. Move the virtual cursor down to a connector and press Enter. NVDA sends a click, which connects exactly like Enter. Then move down to a target and press Enter again.
+- **Focus mode (click sound).** The arrow keys, Home and End reach the board, so everything in the tables above works.
+
+The connectors are plain buttons, so NVDA does not switch to focus mode by itself. Press `NVDA+Space` when you want the arrow keys.

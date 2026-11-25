@@ -1,12 +1,14 @@
 import { MinusIcon } from 'lucide-react';
-import { memo } from 'react';
+import { memo, useLayoutEffect, useRef } from 'react';
 
 import EditableCell from '@/components/EditableCell';
 import { Button } from '@/components/ui/button';
-import type { ConnectorProps, GetConnectorPropsParams } from '@/headless/internal/useConnectorProps';
+import type { ConnectorProps, GetConnectorPropsParams } from '@/headless';
 import type { FieldItem, HeaderColumnProps, TableMappingRef } from '@/types/table-mapping';
 
+import { focusAfterRowRemoval } from './focusAfterRowRemoval';
 import NoData from './ui/nodata';
+import { useRemoveButtonStop } from './useRemoveButtonStop';
 
 interface SourceTableProps {
   sourceTableRef: React.RefObject<HTMLDivElement | null>;
@@ -16,6 +18,7 @@ interface SourceTableProps {
   onBeforeSourceFieldRemove?: (sourceId: string) => void | boolean;
   onAfterSourceFieldRemove?: (removedSourceId: string) => void;
   getConnectorProps: (params: GetConnectorPropsParams) => ConnectorProps;
+  describeRow: (field: FieldItem) => string;
   tableMappingHook: TableMappingRef;
 }
 
@@ -80,17 +83,40 @@ const SourceTable = (props: SourceTableProps) => {
     onBeforeSourceFieldRemove,
     onAfterSourceFieldRemove,
     getConnectorProps,
+    describeRow,
     tableMappingHook,
   } = props;
 
   const { sourceFields, removeSource } = tableMappingHook;
 
+  // Decided before the row goes, because afterwards there is no index to find a neighbour by.
+  const pendingFocus = useRef<{ removed: string; next: string | null } | null>(null);
+
   const handleSourceFieldRemove = (sourceId: string) => {
     const shouldRemove = onBeforeSourceFieldRemove?.(sourceId);
     if (shouldRemove === false) return;
+
+    const ids = sourceFields.map((field) => field.id);
+    const index = ids.indexOf(sourceId);
+
+    pendingFocus.current = { removed: sourceId, next: ids[index + 1] ?? ids[index - 1] ?? null };
     removeSource(sourceId);
     onAfterSourceFieldRemove?.(sourceId);
   };
+
+  useLayoutEffect(() => {
+    const pending = pendingFocus.current;
+
+    if (!pending || sourceFields.some((field) => field.id === pending.removed)) return;
+
+    pendingFocus.current = null;
+    focusAfterRowRemoval(sourceTableRef.current, pending.next, 'source');
+  }, [sourceFields, sourceTableRef]);
+
+  const removeButtonStop = useRemoveButtonStop(
+    sourceFields.map((field) => field.id),
+    sourceTableRef,
+  );
 
   return (
     <div ref={sourceTableRef} className="source-table">
@@ -112,6 +138,9 @@ const SourceTable = (props: SourceTableProps) => {
                 className="mapping-button"
                 variant="outline"
                 size="icon"
+                aria-label={`Remove ${describeRow(field)}`}
+                data-remove-row={field.id}
+                {...removeButtonStop(field.id)}
                 onClick={() => handleSourceFieldRemove(field.id)}
               >
                 <MinusIcon width={12} height={12} />

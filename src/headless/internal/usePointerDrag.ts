@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
-import { type DragState, dragReducer, idleDragState } from '@/core/drag/dragReducer';
+import type { DragEvent, DragState } from '@/core/drag/dragReducer';
 import { mappingHit } from '@/core/geometry/mappingHit';
 import { resolveAnchor } from '@/core/geometry/resolveAnchor';
 import type { Point } from '@/core/types';
@@ -17,6 +17,13 @@ export interface PointerDragHandlers {
 }
 
 export interface UsePointerDragParams {
+  /**
+   * The shared connection state machine. Owned by the caller rather than here, because the
+   * keyboard path drives the same one — that is what makes "a connection is being drawn" have
+   * a single answer, and stops one input starting while the other is running.
+   */
+  drag: DragState;
+  dispatch: (event: DragEvent) => void;
   /** The element every coordinate is measured against. */
   rootRef: React.RefObject<HTMLElement | null>;
   registry: ConnectorRegistry;
@@ -24,17 +31,31 @@ export interface UsePointerDragParams {
   targetIds: string[];
   /** Called when a drag ends on a target. Deciding whether to keep it is the caller's job. */
   onConnect: (sourceId: string, targetId: string) => void;
+  /**
+   * Called when a press on a source cancels a keyboard connection that was in progress — the
+   * same cancel as Escape, so it is reported the same way.
+   */
+  onInterrupt?: (sourceId: string) => void;
   /** Defaults to {@link DEFAULT_CONNECT_RADIUS}. */
   connectRadius?: number;
   disabled?: boolean;
 }
 
 export interface PointerDrag {
-  /** Idle, or the drag in progress with its origin, current point and hovered target. */
-  drag: DragState;
   /** The pointer handlers for one source connector. Stable per id. */
   sourceHandlers: (sourceId: string) => PointerDragHandlers;
+  /**
+   * Whether the click arriving now belongs to a pointer gesture and should do nothing more.
+   * The browser follows every press-and-release on one element with a click, a drag included;
+   * only the press that did not travel is a click in the sense a person means. The other is a
+   * press on the very source a keyboard connection was being drawn from: that press already
+   * cancelled it, and its click must not start it again. Stable.
+   */
+  claimsClick: () => boolean;
 }
+
+/** How far a press may travel before it is a drag rather than a click. */
+const DRAG_THRESHOLD = 4;
 
 /**
  * Drives drawing a connection with a pointer.
@@ -52,15 +73,16 @@ export interface PointerDrag {
  * are measured, so a drag preview and a finished line share one origin.
  */
 export function usePointerDrag({
+  drag,
+  dispatch,
   rootRef,
   registry,
   targetIds,
   onConnect,
+  onInterrupt,
   connectRadius = DEFAULT_CONNECT_RADIUS,
   disabled = false,
 }: UsePointerDragParams): PointerDrag {
-  const [drag, dispatch] = useReducer(dragReducer, idleDragState);
-
   // Usually only a callback needs this treatment — a plain value can go in a dependency array,
   // where a function that is rebuilt every render cannot. Here the values need it too, because
   // the handlers below are built once per source and never rebuilt: whatever one captures is
@@ -70,11 +92,11 @@ export function usePointerDrag({
   // of side effects and is early enough — the handlers only run from DOM events, which come
   // after the commit. `rootRef` is not in here: a ref object's identity never changes, so
   // capturing it directly is already correct.
-  const inputs = useRef({ registry, targetIds, onConnect, connectRadius, disabled });
+  const inputs = useRef({ registry, targetIds, onConnect, onInterrupt, connectRadius, disabled });
   const latestDrag = useRef(drag);
 
   useLayoutEffect(() => {
-    inputs.current = { registry, targetIds, onConnect, connectRadius, disabled };
+    inputs.current = { registry, targetIds, onConnect, onInterrupt, connectRadius, disabled };
     latestDrag.current = drag;
   });
 
@@ -125,6 +147,14 @@ export function usePointerDrag({
     [rootRef],
   );
 
+  // Where the current press went down, whether it has travelled since, and whether it toggled
+  // off the keyboard connection drawn from this same source; then, for the click that follows
+  // the release, whether that click is the gesture's own.
+  const press = useRef<{ x: number; y: number; travelled: boolean; toggledOff: boolean } | null>(null);
+  const claimed = useRef(false);
+
+  const claimsClick = useCallback(() => claimed.current, []);
+
   const handlers = useRef(new Map<string, PointerDragHandlers>());
 
   const sourceHandlers = useCallback(
@@ -137,10 +167,28 @@ export function usePointerDrag({
         onPointerDown: (event) => {
           if (inputs.current.disabled) return;
 
+          const current = latestDrag.current;
+          // A press is the pointer taking over. Ignoring it while a click-started connection
+          // waits for its target left a mouse user with a source that would not drag, and
+          // nothing on screen saying why.
+          const interrupted = current.status === 'keyboard' ? current.sourceId : null;
+
+          press.current = {
+            x: event.clientX,
+            y: event.clientY,
+            travelled: false,
+            toggledOff: interrupted === sourceId,
+          };
+
           const element = inputs.current.registry.getConnector('source', sourceId);
           const root = rootRef.current;
 
           if (!element || !root) return;
+
+          if (interrupted !== null) {
+            dispatch({ type: 'CANCEL' });
+            inputs.current.onInterrupt?.(interrupted);
+          }
 
           const rect = element.getBoundingClientRect();
           const origin = resolveAnchor({
@@ -161,6 +209,12 @@ export function usePointerDrag({
         onPointerMove: (event) => {
           if (!isDragging(sourceId)) return;
 
+          const down = press.current;
+
+          if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > DRAG_THRESHOLD) {
+            down.travelled = true;
+          }
+
           const point = pointAt(event.clientX, event.clientY);
 
           if (!point) return;
@@ -172,6 +226,24 @@ export function usePointerDrag({
         },
 
         onPointerUp: (event) => {
+          // The click follows in the same task as the release, so clearing on the next one
+          // leaves it for that click and for nothing after — a click from a screen reader, say,
+          // which arrives later and was never part of this press.
+          const down = press.current;
+
+          // Measured again here: a move before the release is not guaranteed (see below).
+          const travelled =
+            down && (down.travelled || Math.hypot(event.clientX - down.x, event.clientY - down.y) > DRAG_THRESHOLD);
+
+          if (down && (travelled || down.toggledOff)) {
+            claimed.current = true;
+            setTimeout(() => {
+              claimed.current = false;
+            });
+          }
+
+          press.current = null;
+
           // A release only connects something when this source is the one being dragged from.
           // Without the check a stray pointerup — one whose press was refused because the
           // component is disabled, say — would still land a mapping.
@@ -199,7 +271,7 @@ export function usePointerDrag({
 
       return built;
     },
-    [isDragging, pointAt, targetAt, rootRef],
+    [dispatch, isDragging, pointAt, targetAt, rootRef],
   );
 
   useEffect(() => {
@@ -212,7 +284,7 @@ export function usePointerDrag({
     document.addEventListener('keydown', cancelOnEscape);
 
     return () => document.removeEventListener('keydown', cancelOnEscape);
-  }, [drag.status]);
+  }, [dispatch, drag.status]);
 
-  return { drag, sourceHandlers };
+  return { sourceHandlers, claimsClick };
 }

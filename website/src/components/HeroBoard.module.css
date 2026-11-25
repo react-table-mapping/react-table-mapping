@@ -1,0 +1,54 @@
+/* The narrow-container recipe from the Styling guide, so the board fits the cover's column. */
+.board :global(.source-table),
+.board :global(.target-table) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.board :global(.source-table) {
+  margin-right: 32px;
+}
+
+.board :global(.target-table) {
+  margin-left: 32px;
+}
+
+.board :global(.source-table-row) > *,
+.board :global(.target-table-row) > * {
+  min-width: 0;
+}
+
+.board :global(.custom-cell-text),
+.board :global(.source-table-header-cell),
+.board :global(.target-table-header-cell) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board :global(.mapping-table-select-trigger) {
+  min-width: 0;
+}
+
+.board :global(.mapping-table-select-trigger) > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .board :global(.source-table) {
+    margin-right: 20px;
+  }
+
+  .board :global(.target-table) {
+    margin-left: 20px;
+  }
+
+  .board :global(.custom-cell-text) {
+    margin: 0;
+    padding: 12px 6px;
+  }
+}

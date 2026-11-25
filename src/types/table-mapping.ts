@@ -319,6 +319,25 @@ export interface TableMappingRef {
 export interface TableMappingProps {
   ref?: React.RefObject<TableMappingRef | null>;
 
+  /**
+   * An id for the board itself, so a skip link can point at it.
+   *
+   * The link belongs at the very top of the page, before everything it skips past — somewhere
+   * a component cannot put it. What the component can do is be a place to land: the element
+   * this names carries the landmark role and is focusable, so following `href` moves focus
+   * onto the board rather than leaving it at the top of the document.
+   */
+  id?: string;
+
+  /**
+   * What this board is called, for a screen reader.
+   *
+   * It names the landmark the component becomes, which is how a reader jumps straight to it
+   * instead of walking everything in front of it. Two boards on one page should not share a
+   * name. Defaults to `Field mapping`.
+   */
+  'aria-label'?: string;
+
   // ============ Controlled Props ============
   /**
    * Controlled source fields

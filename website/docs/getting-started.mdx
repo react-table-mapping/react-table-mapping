@@ -1,0 +1,37 @@
+---
+title: Getting started
+---
+
+import Demo from '@site/src/components/Demo';
+import Basic from '@site/src/demos/Basic';
+import BasicSource from '!!raw-loader!@site/src/demos/Basic';
+
+# Getting started
+
+## Install
+
+```bash
+yarn add react-table-mapping
+# or
+npm install react-table-mapping
+# or
+pnpm add react-table-mapping
+```
+
+## Peer dependencies
+
+The library expects these to be installed in your app:
+
+- `react` and `react-dom` (19)
+- `@radix-ui/react-select`
+- `@radix-ui/react-slot`
+
+## Import the styles
+
+```tsx
+import 'react-table-mapping/styles';
+```
+
+## Your first board
+
+<Demo component={Basic} source={BasicSource} />

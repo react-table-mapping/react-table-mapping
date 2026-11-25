@@ -1,0 +1,208 @@
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 56px;
+  align-items: center;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 72px 24px 64px;
+}
+
+.intro {
+  min-width: 0;
+}
+
+.title {
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  color: var(--rtm-ink);
+  margin-bottom: 20px;
+}
+
+.lead {
+  font-size: 1.1875rem;
+  line-height: 1.6;
+  color: var(--rtm-muted);
+  max-width: 34ch;
+  margin-bottom: 28px;
+}
+
+:global(html[lang='ko']) .lead {
+  max-width: 30em;
+  word-break: keep-all;
+}
+
+.install {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 420px;
+  padding: 6px 6px 6px 16px;
+  border: 1px solid var(--rtm-rule);
+  border-radius: 10px;
+  background: var(--rtm-surface);
+  margin-bottom: 20px;
+}
+
+.install code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.9375rem;
+  color: var(--rtm-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt {
+  color: var(--rtm-muted);
+  margin-right: 10px;
+  user-select: none;
+}
+
+.copy {
+  flex: none;
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--rtm-rule);
+  background: var(--rtm-paper);
+  color: var(--rtm-ink);
+  cursor: pointer;
+}
+
+.copy:hover {
+  border-color: var(--rtm-signal);
+}
+
+.copy:focus-visible {
+  outline: 2px solid var(--rtm-signal);
+  outline-offset: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* The one place the page raises its voice: the real component, on a schematic grid. */
+.stage {
+  margin: 0;
+  min-width: 0;
+  padding: 28px 20px 16px;
+  border: 1px solid var(--rtm-rule);
+  border-radius: 18px;
+  background-color: var(--rtm-paper);
+  background-image: radial-gradient(var(--rtm-rule) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.placeholder {
+  height: 340px;
+}
+
+.caption {
+  margin-top: 14px;
+  font-size: 0.875rem;
+  color: var(--rtm-muted);
+  text-align: center;
+}
+
+:global(html[lang='ko']) .caption {
+  word-break: keep-all;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 56px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px 24px 56px;
+}
+
+.feature {
+  border-top: 1px solid var(--rtm-rule);
+  padding: 28px 0 8px;
+}
+
+.glyph svg {
+  width: 48px;
+  height: 28px;
+  margin-bottom: 14px;
+  fill: var(--rtm-signal);
+  stroke: var(--rtm-signal);
+  stroke-width: 1.6;
+}
+
+.featureTitle {
+  font-size: 1.125rem;
+  margin-bottom: 6px;
+  color: var(--rtm-ink);
+}
+
+.featureBody {
+  color: var(--rtm-muted);
+  line-height: 1.6;
+  max-width: 46ch;
+}
+
+:global(html[lang='ko']) .featureBody {
+  word-break: keep-all;
+}
+
+/* Same measure as the feature rules above, so the two dividers line up. */
+.code {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+  gap: 56px;
+  align-items: start;
+  width: calc(100% - 48px);
+  max-width: 1192px;
+  margin: 0 auto;
+  padding: 32px 0 88px;
+  border-top: 1px solid var(--rtm-rule);
+}
+
+.codeTitle {
+  font-size: 1.75rem;
+  margin: 8px 0 12px;
+  color: var(--rtm-ink);
+}
+
+.codeBody {
+  color: var(--rtm-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 996px) {
+  .hero,
+  .code {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .hero {
+    padding-top: 48px;
+  }
+
+  .lead {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .features {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stage {
+    padding: 20px 8px 12px;
+  }
+}

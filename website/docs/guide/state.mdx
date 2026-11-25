@@ -1,0 +1,58 @@
+---
+title: State
+---
+
+import Demo from '@site/src/components/Demo';
+import Controlled from '@site/src/demos/Controlled';
+import ControlledSource from '!!raw-loader!@site/src/demos/Controlled';
+
+# State
+
+`TableMapping` keeps its own store. You hand it `sources`, `targets` and `mappings` as props, and every change the user (or your code) makes is applied to that store immediately and reported through `onMappingChange` as `{ sources, targets, mappings, action }`.
+
+You can use it in two ways.
+
+## Controlled
+
+Take the new values from `onMappingChange` and feed them back down as props. Try it below. The last `action` and the resulting `mappings` are printed under the board.
+
+<Demo component={Controlled} source={ControlledSource} />
+
+## Uncontrolled
+
+Pass only the initial values and read the state later through `ref`, using `getSourceFields`, `getTargetFields` and `getMappings`.
+
+```tsx
+const ref = useRef<TableMappingRef>(null);
+
+<TableMapping ref={ref} sources={sources} targets={targets} mappings={initialMappings} /* ... */ />;
+
+// later
+const current = ref.current?.getMappings();
+```
+
+## How props are reconciled
+
+Props are copied into the store only when their **reference changes**. The snapshot the component last reported through `onMappingChange` is ignored, so feeding it straight back does not cause a second update.
+
+Changes are applied optimistically in both modes. They show up in the store at once, and stay there even if the parent ignores the report.
+
+## Pitfall: unstable references
+
+An inline literal such as `mappings={[]}` or `sources={[...items]}` is a new reference on every render. In an uncontrolled setup, any unrelated parent re-render then pushes the literal back into the store, which wipes the user's changes and cancels edits that are still waiting to be saved.
+
+Keep the initial values stable. Define them outside the component, or memoize them.
+
+```tsx
+const initialMappings: Mapping[] = [];
+
+function Page() {
+  return <TableMapping mappings={initialMappings} /* ... */ />;
+}
+```
+
+## Next
+
+- Connecting and removing lines: [Mappings](./mappings)
+- Adding and removing rows: [Rows](./rows)
+- Every `ref` member: [Ref API](../api/ref)

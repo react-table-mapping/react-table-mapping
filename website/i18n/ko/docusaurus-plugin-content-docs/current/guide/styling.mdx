@@ -1,0 +1,153 @@
+---
+title: 스타일링
+---
+
+import Demo from '@site/src/components/Demo';
+import Styling from '@site/src/demos/Styling';
+import StylingSource from '!!raw-loader!@site/src/demos/Styling';
+
+# 스타일링
+
+## 스타일 가져오기
+
+```tsx
+import 'react-table-mapping/styles';
+```
+
+스타일시트는 CSS 변수를 `:root`에 정의하고, `.dark` 클래스 아래에서 다시 덮어씁니다. 따라서 상위 요소에 `dark`를 붙이면(예: `<html class="dark">`) 다크 모드가 켜집니다.
+
+## 선 종류, 색상, 두께
+
+선은 SVG 경로이므로 CSS가 아니라 props로 스타일을 지정합니다.
+
+| Prop             | 타입                                   | 기본값       |
+| ---------------- | -------------------------------------- | ------------ |
+| `lineType`       | `'bezier'` \| `'straight'` \| `'step'` | `'straight'` |
+| `lineColor`      | `string`                               | `'#009bff'`  |
+| `lineWidth`      | `number`                               | `1.7`        |
+| `hoverLineColor` | `string`                               | `'#e3f3ff'`  |
+
+아래 데모에서 직접 바꿔 보실 수 있습니다.
+
+<Demo component={Styling} source={StylingSource} />
+
+## CSS 변수
+
+스타일시트를 가져온 뒤에 값을 덮어쓰시면 됩니다. 아래 기본값은 라이트 모드 기준이며, `.dark`에는 별도의 값이 있습니다.
+
+```css
+:root {
+  --color-bg-mapping-primary: #ffffff;
+  --color-border-default: #d3d6ea;
+}
+
+.dark {
+  --color-bg-mapping-primary: #242632;
+  --color-border-default: #545667;
+}
+```
+
+| 변수                                    | 기본값                      | 용도                                      |
+| --------------------------------------- | --------------------------- | ----------------------------------------- |
+| `--color-text-default`                  | `var(--gray-1000)`          | 헤더와 본문 텍스트                        |
+| `--color-text-secondary`                | `var(--gray-700)`           | 보조 텍스트                               |
+| `--color-text-tertiary`                 | `var(--gray-600)`           | 플레이스홀더와 안내 문구                  |
+| `--color-text-danger`                   | `var(--danger-600)`         | 오류 텍스트                               |
+| `--color-icon-primary`                  | `var(--info-900)`           | 커넥터 점                                 |
+| `--color-icon-info`                     | `var(--info-600)`           | 호버된 커넥터, 선의 포커스 글로우         |
+| `--color-icon-danger`                   | `var(--danger-600)`         | 삭제 버튼 아이콘                          |
+| `--color-bg-mapping-primary`            | `var(--gray-50)`            | 보드와 테이블 배경                        |
+| `--color-bg-mapping-primary-hover`      | `var(--gray-100)`           | 행 호버                                   |
+| `--color-bg-mapping-secondary`          | `var(--gray-100)`           | 테이블 헤더 배경                          |
+| `--color-bg-mapping-secondary-hover`    | `var(--gray-200)`           | 보조 표면 호버                            |
+| `--color-bg-mapping-secondary-selected` | `var(--gray-400)`           | 선택된 표면                               |
+| `--color-bg-mapping-secondary-disabled` | `var(--gray-300)`           | 비활성화된 input과 select 배경            |
+| `--color-border-default`                | `var(--gray-400)`           | 행, 헤더, input 테두리                    |
+| `--color-border-danger`                 | `var(--danger-600)`         | 삭제 버튼 테두리와 삭제 밴드              |
+| `--shadow-sm`                           | `0px 1px 2px 0px #0000000d` | 작은 그림자                               |
+
+이 변수들이 가리키는 팔레트(`--gray-50`부터 `--gray-1000`, `--info-100`부터 `--info-900`, `--danger-600`)도 `:root`에 정의되어 있으므로, 팔레트 값을 바꿔서 보드 전체의 색을 조정하실 수도 있습니다.
+
+## 삭제 밴드 색상
+
+선을 가리키면 그 뒤에 밴드가 나타나며, 이 영역을 클릭하면 선이 삭제됩니다. 색상은 `--color-border-danger`이고 투명도 18%로 그려지므로, 변수 하나로 밴드와 삭제 버튼 테두리의 색을 함께 바꾸실 수 있습니다.
+
+## 비활성화 상태
+
+`disabled`(기본값 `false`)를 지정하면 보드가 읽기 전용이 됩니다. input과 select는 비활성화되어 `--color-bg-mapping-secondary-disabled` 배경을 사용하고, 커넥터와 선은 포인터에 반응하지 않으며, 행 삭제 버튼은 렌더링되지 않습니다.
+
+```tsx
+<TableMapping disabled /* ... */ />
+```
+
+## 좁은 컨테이너
+
+각 표는 최소 너비 300px을 유지하고 열 너비를 내용에 맞추기 때문에, 보드가 그보다 좁으면 보드 안쪽에서 가로로 스크롤됩니다. 표가 줄어들면서 긴 값을 말줄임(…)으로 자르게 하려면, 보드를 직접 정한 클래스로 감싸고 그 아래 몇 가지 규칙을 덮어쓰면 됩니다.
+
+```css
+.narrow-board .source-table,
+.narrow-board .target-table {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* A grid item's minimum is its content; 0 lets the columns shrink past it. */
+.narrow-board .source-table-row > *,
+.narrow-board .target-table-row > * {
+  min-width: 0;
+}
+
+.narrow-board .custom-cell-text,
+.narrow-board .source-table-header-cell,
+.narrow-board .target-table-header-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.narrow-board .mapping-table-select-trigger {
+  min-width: 0;
+}
+
+.narrow-board .mapping-table-select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+```
+
+```tsx
+<div className="narrow-board">
+  <TableMapping {...props} />
+</div>
+```
+
+:::caution
+여기서 쓰는 선택자는 라이브러리 내부 클래스 이름이며, 문서화된 API가 아닙니다. 업그레이드한 뒤 확인하기 쉽도록 오버라이드를 한 곳에 모아 두세요.
+:::
+
+잘린 텍스트 셀은 마우스를 올려도 전체 값이 보이지 않습니다. 입력칸과 셀렉트는 전체 값을 그대로 가지고 있습니다.
+
+## 커스텀 필드 컴포넌트
+
+셀은 필드 항목으로 정의합니다. `type: 'input'`과 `type: 'select'`는 내부 `<input>` 또는 `<select>`에 그대로 전달되는 `attributes`와 `onChange` 콜백을 받을 수 있습니다.
+
+```tsx
+const customFields = [
+  {
+    id: 'source-0',
+    key: 'source-0',
+    name: {
+      type: 'input',
+      columnKey: 'name',
+      value: 'Custom Field',
+      attributes: { placeholder: 'Enter field name...', maxLength: 50 },
+      onChange: (value) => console.log(value),
+    },
+  },
+];
+```
+
+테이블에 행이 없을 때 보여 줄 내용을 바꾸려면 `noDataComponent`를 전달하시면 됩니다. 마크업을 완전히 직접 구성하려면 [헤드리스 가이드](./headless)를 참고해 주세요.

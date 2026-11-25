@@ -172,17 +172,16 @@ describe('contract: forcing a re-measure', () => {
 
     // Both endpoints below are derived from the layout above, not read off the output: the
     // container sits at the origin, a source anchor is the connector's right edge at its
-    // vertical middle, a target anchor is the left edge, and a straight line stops one marker
-    // inset (7) short of the target so the arrowhead sits beside the connector.
+    // vertical middle, a target anchor is the left edge, and the line ends on the target anchor.
     layout(harness.container, 20);
     act(() => harness.ref.current!.redraw());
 
-    expect(pathOf(harness.container)).toBe('M 200 25 L 393 25');
+    expect(pathOf(harness.container)).toBe('M 200 25 L 400 25');
 
     layout(harness.container, 200);
     act(() => harness.ref.current!.redraw());
 
-    expect(pathOf(harness.container)).toBe('M 200 205 L 393 25');
+    expect(pathOf(harness.container)).toBe('M 200 205 L 400 25');
   });
 
   it('does not emit — it is a measurement trigger, not a mutation', () => {

@@ -14,6 +14,10 @@ import { mappingLine } from './helpers/dnd';
  * baselines for all three would mean three sets that disagree for reasons no change caused.
  * A pixel difference that is real will show up in one engine as readily as in three.
  *
+ * Scoped to the styled component rather than the page. The dev page also renders a board
+ * built on `/headless`, and a full-page shot would make every baseline sensitive to that
+ * second board — a change to the example would read as a change to the library.
+ *
  * Baselines carry the platform that took them in their filename, and only one platform's are
  * committed. This runs locally and is skipped on CI, which is a different OS and would find no
  * baseline of its own to compare against — so this is a tool for whoever is mid-rebuild, not a
@@ -21,6 +25,9 @@ import { mappingLine } from './helpers/dnd';
  */
 
 const PRESET_MAPPING = 'mapping-4-2';
+
+/** The styled component, and nothing else on the dev page. */
+const styledBoard = (page: Page) => page.locator('.react-table-mapping');
 
 /**
  * Waits until the mapping line stops moving.
@@ -62,7 +69,7 @@ test.describe('styled appearance', () => {
   });
 
   test('with a mapping drawn', async ({ page }) => {
-    await expect(page).toHaveScreenshot('default.png', { fullPage: true });
+    await expect(styledBoard(page)).toHaveScreenshot('default.png');
   });
 
   test('while disabled', async ({ page }) => {
@@ -81,10 +88,11 @@ test.describe('styled appearance', () => {
     // marker and class all measured the same across twenty replays. Raising the tolerance
     // instead would have swallowed real changes: the connectors going from div to button showed
     // up as 263. What this shot is for — the tables and connectors while disabled — is
-    // untouched by the mask, and the line is frozen in `default.png`.
-    await expect(page).toHaveScreenshot('disabled.png', {
-      fullPage: true,
-      mask: [page.locator('.mapping-svg')],
+    // untouched by the mask, and the line is frozen in `default.png`. The line group is masked
+    // rather than `.mapping-svg`: the canvas now spans the whole board, so masking it would
+    // paint the entire shot and compare nothing.
+    await expect(styledBoard(page)).toHaveScreenshot('disabled.png', {
+      mask: [styledBoard(page).locator('.mapping-line-group')],
     });
   });
 
@@ -93,6 +101,6 @@ test.describe('styled appearance', () => {
 
     await expect(mappingLine(page, PRESET_MAPPING)).not.toBeAttached();
 
-    await expect(page).toHaveScreenshot('no-mappings.png', { fullPage: true });
+    await expect(styledBoard(page)).toHaveScreenshot('no-mappings.png');
   });
 });

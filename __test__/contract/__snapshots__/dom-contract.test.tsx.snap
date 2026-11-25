@@ -31,9 +31,9 @@ exports[`styled DOM contract baseline > renders the frozen structure when disabl
             button.connector.source-connector#connector-source-source-2@connector-source-source-2
     svg.mapping-svg
       defs
-        marker#arrowhead-normal
+        marker#arrowhead-normal-*
           path
-        marker#arrowhead-hover
+        marker#arrowhead-hover-*
           path
     div.target-table
       div.target-table-header
@@ -60,7 +60,8 @@ exports[`styled DOM contract baseline > renders the frozen structure when disabl
                 span
                 svg.lucide.lucide-chevron-down
                   path
-            button.connector.target-connector#connector-target-target-2@connector-target-target-2"
+            button.connector.target-connector#connector-target-target-2@connector-target-target-2
+  div"
 `;
 
 exports[`styled DOM contract baseline > renders the frozen structure with mappings drawn 1`] = `
@@ -104,9 +105,9 @@ exports[`styled DOM contract baseline > renders the frozen structure with mappin
         path.line-base
         path.hover-area
       defs
-        marker#arrowhead-normal
+        marker#arrowhead-normal-*
           path
-        marker#arrowhead-hover
+        marker#arrowhead-hover-*
           path
     div.target-table
       div.target-table-header
@@ -140,7 +141,8 @@ exports[`styled DOM contract baseline > renders the frozen structure with mappin
             button.connector.target-connector#connector-target-target-2@connector-target-target-2
           button.mapping-button.mapping-button--icon.mapping-button--outline
             svg.lucide.lucide-minus
-              path"
+              path
+  div"
 `;
 
 exports[`styled DOM contract baseline > renders the frozen structure with no data 1`] = `
@@ -162,9 +164,9 @@ exports[`styled DOM contract baseline > renders the frozen structure with no dat
           span
     svg.mapping-svg
       defs
-        marker#arrowhead-normal
+        marker#arrowhead-normal-*
           path
-        marker#arrowhead-hover
+        marker#arrowhead-hover-*
           path
     div.target-table
       div.target-table-header
@@ -179,5 +181,6 @@ exports[`styled DOM contract baseline > renders the frozen structure with no dat
             path
             path
             path
-          span"
+          span
+  div"
 `;

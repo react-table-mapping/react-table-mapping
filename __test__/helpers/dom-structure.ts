@@ -11,9 +11,28 @@
  * not show up as false regressions.
  */
 
+/**
+ * React's `useId` and Radix's own counter, in every shape they are written.
+ *
+ * These change with render order, so two tests rendering the same component get different
+ * values and a snapshot of them is a snapshot of nothing.
+ */
+const GENERATED_ID = /:r[0-9a-z]+:|_r_[0-9a-z]+_|«r[0-9a-z]+»/gi;
+
 /** Attribute values that are generated per-render and must never enter a snapshot. */
 function isVolatileId(value: string): boolean {
-  return value.startsWith('radix-') || /^:r[0-9a-z]+:$/i.test(value);
+  return value.startsWith('radix-') || (value !== '' && value.replace(GENERATED_ID, '') === '');
+}
+
+/**
+ * Drops the generated part of an id that also carries a fixed one.
+ *
+ * An instance-scoped id — `arrowhead-normal-_r_7_` — is half contract and half render order.
+ * Keeping the whole thing makes the snapshot unstable; dropping the whole thing loses the
+ * evidence that the marker is there at all.
+ */
+function stableId(value: string): string {
+  return value.replace(GENERATED_ID, '*');
 }
 
 function classOf(el: Element): string {
@@ -31,7 +50,7 @@ function describe(el: Element): string {
   const parts = [el.tagName.toLowerCase(), classOf(el)];
 
   const id = el.getAttribute('id');
-  if (id && !isVolatileId(id)) parts.push(`#${id}`);
+  if (id && !isVolatileId(id)) parts.push(`#${stableId(id)}`);
 
   const testId = el.getAttribute('data-testid');
   if (testId) parts.push(`@${testId}`);

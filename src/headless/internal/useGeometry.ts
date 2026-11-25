@@ -103,7 +103,9 @@ export function useGeometry({
         id: mapping.id,
         source: mapping.source,
         target: mapping.target,
-        path: createLinePath({ type: lineType, from, to }),
+        // Every type ends on the anchor, so the arrowhead sits the same distance from the
+        // connector whichever type is drawn; the core default would hold `straight` alone back.
+        path: createLinePath({ type: lineType, from, to, markerInset: 0 }),
         from,
         to,
         mid: { x: from.x + (to.x - from.x) / 2, y: from.y + (to.y - from.y) / 2 },

@@ -1,0 +1,76 @@
+---
+title: Rows
+---
+
+# Rows
+
+A row is a `FieldItem`: an `id`, a `key`, and one entry per column. Each column entry is a field, and the column it belongs to is set by `columnKey`.
+
+## Adding and removing rows
+
+Use the `ref`.
+
+| Method                                                  | What it does                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `appendSource(source)`, `appendTarget(target)`          | Adds a row to the end. Leave `id` out and one is generated.                    |
+| `removeSource(sourceId)`, `removeTarget(targetId)`      | Removes the row and every mapping that referenced it.                          |
+| `updateSourceFields(next)`, `updateTargetFields(next)`  | Replaces the whole list. Mappings are left alone.                              |
+| `updateSourceFieldValue(sourceId, fieldKey, newValue)`  | Sets one value immediately. `updateTargetFieldValue` is the same for targets.  |
+
+```tsx
+ref.current?.appendTarget({
+  key: 'target-3',
+  name: { type: 'string', columnKey: 'name', value: 'status' },
+});
+```
+
+Each row also has a remove button, one tab stop per column.
+
+## Hooks around removal
+
+`onBeforeSourceFieldRemove(sourceId)` and `onBeforeTargetFieldRemove(targetId)` run before a row is removed. Return `false` to keep the row. `onAfterSourceFieldRemove(removedSourceId)` and `onAfterTargetFieldRemove(removedTargetId)` run afterwards.
+
+## Field types
+
+A field is one of three types, or a plain string.
+
+```tsx
+// Static text
+{ type: 'string', columnKey: 'name', value: 'Static Text' }
+
+// Editable text
+{ type: 'input', columnKey: 'name', value: 'Initial', onChange: (value) => {} }
+
+// Dropdown
+{
+  type: 'select',
+  columnKey: 'func',
+  defaultValue: 'CONCAT',
+  options: [
+    { label: 'None', value: 'NONE' },
+    { label: 'Concatenate', value: 'CONCAT' },
+  ],
+  onChange: (value) => {},
+}
+```
+
+`input` and `select` also accept `attributes`, which are passed to the underlying element.
+
+## Edits are debounced
+
+Typing in an `input` or choosing in a `select` is written to the store after a short delay, 300 ms by default. Edits made from code with `updateSourceFieldValue` or `updateTargetFieldValue` are applied immediately.
+
+## Actions
+
+| `type`                      | `payload`                          |
+| --------------------------- | ---------------------------------- |
+| `APPEND_SOURCE`             | `source`                           |
+| `REMOVE_SOURCE`             | `sourceId`, `removedMappings`      |
+| `UPDATE_SOURCE_FIELDS`      | `previousSources`, `newSources`    |
+| `UPDATE_SOURCE_FIELD_VALUE` | `sourceId`, `fieldKey`, `newValue` |
+| `APPEND_TARGET`             | `target`                           |
+| `REMOVE_TARGET`             | `targetId`, `removedMappings`      |
+| `UPDATE_TARGET_FIELDS`      | `previousTargets`, `newTargets`    |
+| `UPDATE_TARGET_FIELD_VALUE` | `targetId`, `fieldKey`, `newValue` |
+
+Mapping actions are listed on [Mappings](./mappings).
