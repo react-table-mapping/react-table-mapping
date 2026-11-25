@@ -1,6 +1,7 @@
 {
   "name": "react-table-mapping",
-  "version": "1.0.3",
+  "version": "1.1.0",
+  "description": "Drag-and-drop field mapping for React: two tables joined by lines, drawn by drag, click or keyboard, with a headless subpath.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -132,12 +133,18 @@
     "mapping",
     "field-mapping",
     "data-mapping",
-    "table-mapping"
+    "table-mapping",
+    "drag-and-drop",
+    "headless",
+    "accessibility"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/react-table-mapping/react-table-mapping"
   },
-  "homepage": "https://github.com/react-table-mapping/react-table-mapping#readme",
+  "bugs": {
+    "url": "https://github.com/react-table-mapping/react-table-mapping/issues"
+  },
+  "homepage": "https://react-table-mapping.github.io/react-table-mapping/",
   "license": "MIT"
 }

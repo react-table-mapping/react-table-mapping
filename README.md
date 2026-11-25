@@ -1,15 +1,14 @@
 <div align="center">
   <a href="https://react-table-mapping.github.io/react-table-mapping/" title="React Table Mapping documentation">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/banner-dark.svg" />
-      <img src="./.github/assets/banner-light.svg" alt="React Table Mapping — two field lists joined by mapping lines" width="100%" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/react-table-mapping/react-table-mapping/main/.github/assets/banner-dark.svg" />
+      <img src="https://raw.githubusercontent.com/react-table-mapping/react-table-mapping/main/.github/assets/banner-light.svg" alt="React Table Mapping — two field lists joined by mapping lines" width="100%" />
     </picture>
   </a>
   <p>
     <a href="https://www.npmjs.com/package/react-table-mapping"><img src="https://img.shields.io/npm/v/react-table-mapping.svg?style=flat-square&colorA=151826&colorB=0369d3" alt="npm version" /></a>
-    <a href="https://www.npmjs.com/package/react-table-mapping"><img src="https://img.shields.io/npm/dm/react-table-mapping.svg?style=flat-square&colorA=151826&colorB=0369d3" alt="npm downloads" /></a>
     <a href="https://bundlephobia.com/package/react-table-mapping"><img src="https://img.shields.io/bundlephobia/minzip/react-table-mapping?style=flat-square&colorA=151826&colorB=0369d3&label=minzip" alt="bundle size" /></a>
-    <a href="./LICENSE"><img src="https://img.shields.io/npm/l/react-table-mapping.svg?style=flat-square&colorA=151826&colorB=0369d3" alt="MIT License" /></a>
+    <a href="https://github.com/react-table-mapping/react-table-mapping/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/react-table-mapping.svg?style=flat-square&colorA=151826&colorB=0369d3" alt="MIT License" /></a>
   </p>
 </div>
 
@@ -89,8 +88,8 @@ yarn test       # unit and contract tests
 yarn test:e2e   # Playwright, in Chromium, Firefox and WebKit
 ```
 
-See the [changelog](./CHANGELOG.md) for what changed in each release.
+See the [changelog](https://github.com/react-table-mapping/react-table-mapping/blob/main/CHANGELOG.md) for what changed in each release.
 
 ## License
 
-MIT © [donghyun-git](https://github.com/donghyun-git). See [LICENSE](./LICENSE) for details.
+MIT © [donghyun-git](https://github.com/donghyun-git). See [LICENSE](https://github.com/react-table-mapping/react-table-mapping/blob/main/LICENSE) for details.

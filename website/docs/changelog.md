@@ -4,7 +4,9 @@ title: Changelog
 
 # Changelog
 
-## Unreleased
+## Version 1.1.0
+
+Released on November 25th, 2026.
 
 - **Mapping lines**: The line under the pointer, or the one reached with the keyboard, now shows a red band over the area a click removes. A line pressed with the mouse but not clicked no longer stays highlighted after the pointer leaves, and hovering a line now wins over a line that holds focus. A line no longer stays highlighted when the browser misses the pointer leaving it, and moving the mouse hides the keyboard highlight until a key is pressed on the line.
 - **Keyboard**: Confirming a keyboard connection returns focus to the source it started from, instead of leaving it on the target. Pressing Enter again on the source starts the next connection from the target chosen last.
